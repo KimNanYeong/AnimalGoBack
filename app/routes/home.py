@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 import firebase_admin
 from firebase_admin import firestore
-import db.firestore as fs
 
 main_router = APIRouter()
 
