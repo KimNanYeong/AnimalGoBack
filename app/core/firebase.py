@@ -2,13 +2,13 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 
-# 환경 변수에서 Firebase 인증 키 경로 가져오기
-# FIREBASE_CRED_PATH = os.getenv("FIREBASE_CRED_PATH", "firebase_config.json")
-FIREBASE_CRED_PATH = os.getenv("FIREBASE_CRED_PATH", "core/firebase_config.json")
+# Firestore 인증 정보 설정 (경로 확인)
+config_path = os.path.join(os.path.dirname(__file__), "firebase_config.json")
 
-# Firebase 초기화
-cred = credentials.Certificate(FIREBASE_CRED_PATH)
-firebase_admin.initialize_app(cred)
+# Firebase 앱이 여러 번 초기화되는 오류 방지
+if not firebase_admin._apps:
+    cred = credentials.Certificate(config_path)
+    firebase_admin.initialize_app(cred)
 
-# Firestore DB 가져오기
+# Firestore 클라이언트 생성
 db = firestore.client()

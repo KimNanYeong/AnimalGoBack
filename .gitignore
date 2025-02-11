@@ -1,1 +1,3 @@
 app/core/firebase_config.json
+# Ignore environment variables
+.env
