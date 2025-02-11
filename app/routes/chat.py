@@ -54,44 +54,6 @@ def summarize_repeated_questions(messages):
 
     return summary if summary else None
 
-# ✅ 특정 채팅방의 최근 대화 내역 가져오기 (최대 10개) + 반복 질문 요약
-@router.get("/chat/history/{chat_id}")
-async def get_chat_history(chat_id: str):
-    """
-    Firestore에서 특정 채팅방(chat_id)의 최근 10개 메시지를 가져옵니다.
-    - Firestore Timestamp를 ISO 8601 형식으로 변환
-    - 같은 질문이 반복되면 요약 메시지를 추가
-    """
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    docs = messages_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(10).stream()
-
-    chat_history = []
-    for doc in docs:
-        message = doc.to_dict()
-
-        # ✅ Firestore Timestamp 변환 (ISO 8601)
-        if "timestamp" in message:
-            if isinstance(message["timestamp"], datetime):
-                message["timestamp"] = message["timestamp"].isoformat()
-            elif hasattr(message["timestamp"], "to_datetime"):
-                message["timestamp"] = message["timestamp"].to_datetime().isoformat()
-
-        chat_history.append(message)
-
-    # ✅ 반복 질문이 있는 경우 요약 메시지를 추가
-    summary = summarize_repeated_questions(chat_history)
-    if summary:
-        chat_history.insert(0, {  
-            "sender": "system",
-            "content": " / ".join(summary),
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        })
-
-    # ✅ 최신 메시지가 리스트의 마지막에 오도록 순서 변경
-    chat_history.reverse()
-
-    return {"chat_id": chat_id, "messages": chat_history}
-
 # ✅ AI와 채팅하는 API (Gemini API 사용)
 @router.post("/chat/send_message")
 async def chat_with_ai(
@@ -100,10 +62,9 @@ async def chat_with_ai(
     pet_id: str = Query(..., description="Pet ID")
 ):
     """
-    Gemini API를 활용하여 AI와 채팅하는 API
-    - 사용자의 입력(user_input)을 받아 Firestore에서 반려동물 & 성격 데이터 조회
-    - AI에게 최근 채팅 내역을 포함한 메시지를 전달하여 자연스러운 응답 생성
-    - 생성된 AI 응답을 Firestore에 저장 후 반환
+    🔥 AI와 채팅하는 API 🔥
+    - Firestore에서 반려동물 데이터를 가져와 성격을 반영한 채팅을 생성
+    - Firestore에 메시지 저장 및 `last_active_at`, `last_message` 필드 업데이트
     """
 
     # ✅ Firestore에서 반려동물 데이터 가져오기
@@ -112,15 +73,23 @@ async def chat_with_ai(
         raise HTTPException(status_code=404, detail="Pet data not found")
 
     pet_name = pet_data.get("name", "Unknown Pet")
-    species = pet_data.get("species", "Unknown Species")
-    trait_id = pet_data.get("trait_id", "calm")  # 기본 성격 calm 설정
+    personality = pet_data.get("personality", "기본 성격")
+    chat_id = f"{user_id}_{pet_id}"
 
-    # ✅ Firestore에서 성격 데이터 가져오기
-    trait_data = get_trait_data(trait_id)
-    if trait_data is None:
-        raise HTTPException(status_code=404, detail="Trait data not found")
+    # ✅ Firestore에서 해당 채팅방이 존재하는지 확인
+    chat_doc_ref = db.collection("chats").document(chat_id)
+    chat_doc = chat_doc_ref.get()
 
-    personality = trait_data.get("name", "기본 성격")
+    if not chat_doc.exists:
+        # ✅ 채팅방이 없으면 새로 생성
+        chat_doc_ref.set({
+            "chat_id": chat_id,
+            "character_name": pet_name,
+            "character_personality": personality,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_active_at": datetime.now(timezone.utc).isoformat(),
+            "last_message": {"text": "", "sender": "", "timestamp": None}  # ✅ 기본값 추가
+        })
 
     # ✅ Firestore에서 최근 10개 채팅 내역 가져오기
     chat_history = get_recent_messages(user_id, pet_id)
@@ -128,28 +97,45 @@ async def chat_with_ai(
 
     # ✅ AI가 반려동물의 개성을 반영할 수 있도록 시스템 프롬프트 설정
     system_prompt = f"""
-    너는 {species}인 {pet_name}야.
+    너는 {pet_name}야.
     너는 {personality} 성격을 가지고 있어.
     친근한 말투로 대답해야 해.
     """
 
     try:
-        # ✅ Gemini API 요청 (messages 대신 리스트로 직접 입력)
+        # ✅ Gemini API 요청
         model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(
-            [system_prompt, *formatted_history, user_input]  # 전체 입력 리스트로 전달
-        )
+        response = model.generate_content([system_prompt, *formatted_history, user_input])
 
-        # ✅ 응답이 정상적으로 생성되지 않으면 예외 발생
         if not response.text:
             raise HTTPException(status_code=500, detail="Gemini API returned empty response")
 
         ai_response = response.text
 
         # ✅ Firestore에 대화 내용 저장
-        messages_ref = db.collection("chats").document(f"{user_id}_{pet_id}").collection("messages")
-        messages_ref.add({"content": user_input, "sender": "user", "timestamp": datetime.now(timezone.utc)})
-        messages_ref.add({"content": ai_response, "sender": pet_name, "timestamp": datetime.now(timezone.utc)})
+        messages_ref = chat_doc_ref.collection("messages")
+
+        # ⬇️ ✅ 사용자 메시지 저장
+        user_message = {
+            "content": user_input,
+            "sender": "user",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        messages_ref.add(user_message)
+
+        # ⬇️ ✅ AI 응답 메시지 저장
+        ai_message = {
+            "content": ai_response,
+            "sender": pet_name,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        messages_ref.add(ai_message)
+
+        # ✅ 채팅방 문서 업데이트 (last_active_at & last_message)
+        chat_doc_ref.update({
+            "last_active_at": ai_message["timestamp"],  # ✅ 가장 최근 메시지 시간
+            "last_message": ai_message  # ✅ 최근 메시지 저장
+        })
 
         return {"response": ai_response}
 
