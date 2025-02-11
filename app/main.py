@@ -1,14 +1,11 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 import uvicorn
 import firebase_admin
 from firebase_admin import credentials, firestore
-from routes.home import main_router
-
-# Firestore 클라이언트 가져오기
-# db = firestore.client()
+from routes.home import main_router  # 🔹 home.py에서 router만 가져오기
 
 # FastAPI 앱 생성
-app = FastAPI()
+app = FastAPI(title="FastAPI with Firestore")
 app.include_router(main_router)
 
 if __name__ == "__main__":
