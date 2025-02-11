@@ -10,12 +10,18 @@ from firebase_admin import credentials, firestore
 from app.core.firebase import db  # Firestore 초기화 모듈
 
 # ✅ 라우트 (API 엔드포인트) 불러오기
-from app.routes.chat import router as chat_router  # 채팅 관련 API
-from app.routes.clear_chat import router as clear_chat_router  # 채팅 기록 삭제 API
-from app.routes.traits import router as traits_router  # 성격 데이터 관련 API
-from app.routes.pets import router as pets_router  # 반려동물 관련 API
-from app.routes import chat_list  # 채팅 리스트 API
-from app.routes import chat_history  # ✅ 채팅 내역 조회 API 추가
+from app.routes.chat.chat import router as chat_router
+from app.routes.chat.chat_history import router as chat_history_router
+from app.routes.chat.chat_list import router as chat_list_router
+from app.routes.chat.clear_chat import router as clear_chat_router
+
+from app.routes.pets.pets import router as pets_router
+from app.routes.pets.pet_traits import router as traits_router
+
+from app.routes.users.user import router as user_router
+from app.routes.home.base import router as base_router
+from app.routes.home.image_upload import router as image_router
+from app.routes.home.character import router as character_router
 
 # ✅ 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -33,18 +39,19 @@ app.add_middleware(
 )
 
 # ✅ API 라우트 등록 (각 기능별 엔드포인트 연결)
-app.include_router(chat_router)  # 채팅 API
-app.include_router(clear_chat_router)  # 채팅 삭제 API
-app.include_router(traits_router, prefix="/api")  # 성격 데이터 API
-app.include_router(pets_router, prefix="/api")  # 반려동물 관리 API
-app.include_router(chat_list.router)  # 채팅 리스트 API
-app.include_router(chat_history.router)  # ✅ 채팅 내역 조회 API 추가
+app.include_router(chat_router, prefix="/chat")
+app.include_router(chat_history_router, prefix="/chat")
+app.include_router(chat_list_router, prefix="/chat")
+app.include_router(clear_chat_router, prefix="/chat")
 
-# ✅ 기본 루트 엔드포인트 (서버 상태 확인용)
-@app.get("/")
-def home():
-    """백엔드 서버 상태 확인용 엔드포인트"""
-    return {"message": "FastAPI 백엔드 실행 중!"}
+app.include_router(pets_router, prefix="/pets")
+app.include_router(traits_router, prefix="/pets")
+
+# app.include_router(user_router, prefix="/users")
+app.include_router(base_router, prefix="/home")
+app.include_router(image_router, prefix="/home")
+app.include_router(character_router, prefix="/home")
+
 
 # ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
