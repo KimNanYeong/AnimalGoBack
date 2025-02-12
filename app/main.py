@@ -45,6 +45,9 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 요청 헤더 허용
 )
 
+#User Router
+app.include_router(user_router)
+
 # ✅ API 라우트 등록 (각 기능별 엔드포인트 연결)
 app.include_router(chat_router, prefix="/chat")
 app.include_router(chat_history_router, prefix="/chat")
@@ -58,7 +61,6 @@ app.include_router(traits_router, prefix="/pets")
 app.include_router(base_router, prefix="/home")
 app.include_router(image_router, prefix="/home")
 app.include_router(character_router, prefix="/home")
-
 
 # ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
