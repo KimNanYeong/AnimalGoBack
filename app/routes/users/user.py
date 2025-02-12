@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
-from app.db.firestore import get_user, create_user, update_user, delete_user
-from app.schemas.user import UserCreate, UserUpdate
+# from app.db.firestore import get_user, create_user, update_user, delete_user
+# from app.schemas.user import UserCreate, UserUpdate
+from db import get_user, create_user, update_user, delete_user
+from schemas.user import UserCreate, UserUpdate
 
 router = APIRouter()
 

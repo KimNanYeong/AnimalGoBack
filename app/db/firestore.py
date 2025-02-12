@@ -1,4 +1,5 @@
-from app.core.firebase import db
+# from app.core.firebase import db
+from core.firebase import db
 from fastapi import HTTPException
 
 # ✅ [1] 사용자(User) 데이터 조회 함수

@@ -7,21 +7,28 @@ import uvicorn
 # ✅ Firestore 관련 모듈 불러오기
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.core.firebase import db  # Firestore 초기화 모듈
+# from app.core.firebase import db  # Firestore 초기화 모듈f
+from core import db
 
 # ✅ 라우트 (API 엔드포인트) 불러오기
-from app.routes.chat.chat import router as chat_router
-from app.routes.chat.chat_history import router as chat_history_router
-from app.routes.chat.chat_list import router as chat_list_router
-from app.routes.chat.clear_chat import router as clear_chat_router
+# from app.routes.chat.chat import router as chat_router
+# from app.routes.chat.chat_history import router as chat_history_router
+# from app.routes.chat.chat_list import router as chat_list_router
+# from app.routes.chat.clear_chat import router as clear_chat_router
 
-from app.routes.pets.pets import router as pets_router
-from app.routes.pets.pet_traits import router as traits_router
+from routes import chat_router, chat_history_router, chat_list_router, clear_chat_router
 
-from app.routes.users.user import router as user_router
-from app.routes.home.base import router as base_router
-from app.routes.home.image_upload import router as image_router
-from app.routes.home.character import router as character_router
+# from app.routes.pets.pets import router as pets_router
+# from app.routes.pets.pet_traits import router as traits_router
+from routes import pets_router, traits_router
+
+# from app.routes.users.user import router as user_router
+from routes import user_router
+
+# from app.routes.home.base import router as base_router
+# from app.routes.home.image_upload import router as image_router
+# from app.routes.home.character import router as character_router
+from routes import base_router, image_router, character_router
 
 # ✅ 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
