@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 import os
 import uuid
-from app.core.firebase import db
+# from app.core.firebase import db
+from core.firebase import db
 from firebase_admin import firestore
 
 router = APIRouter()

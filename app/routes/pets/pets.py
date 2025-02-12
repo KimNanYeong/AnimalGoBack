@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
 from pydantic import BaseModel
-from app.db.firestore import get_user_pet  # ✅ Firestore에서 반려동물 정보 조회 함수 가져오기
+
+# from app.db.firestore import get_user_pet  # ✅ Firestore에서 반려동물 정보 조회 함수 가져오기
+from db import get_user_pet
+
 
 # ✅ FastAPI 라우터 생성
 router = APIRouter()

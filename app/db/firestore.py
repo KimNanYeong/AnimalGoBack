@@ -1,4 +1,5 @@
-from app.core.firebase import db
+# from app.core.firebase import db
+from core.firebase import db
 from fastapi import HTTPException
 
 # ✅ [1] 사용자(User) 데이터 조회 함수
@@ -46,3 +47,10 @@ def get_character(character_id: str):
         raise HTTPException(status_code=404, detail="Character not found")
 
     return char_doc.to_dict()
+
+def save_to_firestore(user_id: str, character_id: str, original_path: str, processed_path: str):
+    doc_ref = db.collection("users").document(user_id).collection("characters").document(character_id)
+    doc_ref.set({
+        "original_image": original_path,
+        "processed_image": processed_path
+    })

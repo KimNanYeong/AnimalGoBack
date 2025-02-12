@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 import socket
-from app.core.firebase import db
+# from app.core.firebase import db
+from core.firebase import db
+
 from firebase_admin import firestore
 
 # ✅ FastAPI 라우터 생성
