@@ -10,6 +10,7 @@ COMFYUI_SERVER_URL = "http://127.0.0.1:8188"  # ComfyUI 서버 URL
 COMFYUI_WORKFLOW_PATH = "app/db/comfyui_workflow.json"  # 워크플로우 JSON 파일 경로
 # DEFAULT_OUTPUT_FILENAME = "output/generated_image.png"  # 생성된 이미지 저장 경로
 
+
 async def fetch_character_info(charac_id: str) -> dict:
     """
     Firestore에서 캐릭터 정보를 조회하여,
