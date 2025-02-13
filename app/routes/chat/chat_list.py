@@ -39,8 +39,8 @@ async def get_chat_list(user_id: str):
                 "chat_id": chat_id,
                 "character_name": chat_data.get("character_name", ""),
                 "character_personality": chat_data.get("character_personality", ""),
-                "created_at": chat_data.get("created_at", ""),
-                "last_active_at": chat_data.get("last_active_at", ""),
+                "created_at": chat_data.get("created_at", ""),  # ✅ 변환 없이 Firestore Timestamp 그대로 사용
+                "last_active_at": chat_data.get("last_active_at", ""),  # ✅ 변환 없이 Firestore Timestamp 그대로 사용
                 "last_message": last_message
             })
 
