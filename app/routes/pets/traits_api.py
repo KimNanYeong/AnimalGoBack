@@ -4,11 +4,11 @@ from firebase_admin import firestore
 router = APIRouter()
 db = firestore.client()
 
-@router.get("/traits/{species}/")
-def get_traits(species: str):
+@router.get("/traits/{animaltype}/")
+def get_traits(animaltype: str):
     """
     🔥 Firestore에서 등록된 성격 프리셋 목록을 가져오는 API 🔥
-    - 사용자가 요청한 동물 종(`species`)에 따라 말투가 달라지도록 함.
+    - 사용자가 요청한 동물 종(`animaltype`)에 따라 말투가 달라지도록 함.
     - 예: `GET /traits/고양이/` → 고양이 스타일로 응답
     """
     traits_ref = db.collection("personality")  # ✅ `character_traits` → `personality`
@@ -18,8 +18,8 @@ def get_traits(species: str):
     for doc in docs:
         trait_data = doc.to_dict()
         
-        # ✅ 요청된 종(species)에 따른 말투 선택
-        speech_pattern = trait_data.get("species_speech_pattern", {}).get(species, "{말투}")
+        # ✅ 요청된 종(animaltype)에 따른 말투 선택
+        speech_pattern = trait_data.get("species_speech_pattern", {}).get(animaltype, "{말투}")
 
         traits.append({
             "id": trait_data.get("id"),
