@@ -28,7 +28,7 @@ from routes import user_router
 # from app.routes.home.base import router as base_router
 # from app.routes.home.image_upload import router as image_router
 # from app.routes.home.character import router as character_router
-from routes import base_router, image_router, character_router
+from routes import base_router, image_router, character_router, register_router
 
 # ✅ 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -61,6 +61,7 @@ app.include_router(traits_router, prefix="/pets")
 app.include_router(base_router, prefix="/home")
 app.include_router(image_router, prefix="/home")
 app.include_router(character_router, prefix="/home")
+app.include_router(register_router, prefix="/home")
 
 # ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":

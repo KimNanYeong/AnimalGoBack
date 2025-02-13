@@ -14,4 +14,5 @@ from .users.user import router as user_router
 # Home Router 설정
 from .home.base import router as base_router
 from .home.image_upload import router as image_router
-from .home.character import router as character_router
+from .home.character_api import router as character_router
+from .home.register import router as register_router
