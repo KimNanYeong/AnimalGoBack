@@ -1,7 +1,7 @@
 {
   "6": {
     "inputs": {
-      "text": "<lora:xtxm:1> xtxm, no humans,simple background, white background, animal focus, sitting, cat, dog, solo, bird, animal, looking at viewer, (adorable:1.2), (cute face:1.3), (chibi style:1.3), (cartoonish:1.2), (smooth fur), (detailed paws:1.1), (squred features:1.2), (muted tones:1.2), (none background), (focus animal)",
+      "text": "<lora:xtxm:1> xtxm, no humans, simple background, white background, animal focus, sitting, solo, animal, looking at viewer, (adorable:1.2), (cute face:1.3), (chibi style:1.3), (cartoonish:1.2), (smooth fur), (detailed paws:1.1), (squred features:1.2), (muted tones:1.2), (none background), (focus animal)",
       "clip": [
         "25",
         1
