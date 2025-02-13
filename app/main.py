@@ -16,11 +16,11 @@ from core import db
 # from app.routes.chat.chat_list import router as chat_list_router
 # from app.routes.chat.clear_chat import router as clear_chat_router
 
-from routes import chat_router, chat_history_router, chat_list_router, clear_chat_router
+from routes import chat_send_message_router, chat_history_router, chat_list_router, clear_chat_router
 
 # from app.routes.pets.pets import router as pets_router
 # from app.routes.pets.pet_traits import router as traits_router
-from routes import pets_router, traits_router
+from routes import traits_router, characters_router
 
 # from app.routes.users.user import router as user_router
 from routes import user_router
@@ -49,13 +49,13 @@ app.add_middleware(
 app.include_router(user_router)
 
 # ✅ API 라우트 등록 (각 기능별 엔드포인트 연결)
-app.include_router(chat_router, prefix="/chat")
+app.include_router(chat_send_message_router, prefix="/chat")
 app.include_router(chat_history_router, prefix="/chat")
 app.include_router(chat_list_router, prefix="/chat")
 app.include_router(clear_chat_router, prefix="/chat")
 
-app.include_router(pets_router, prefix="/pets")
 app.include_router(traits_router, prefix="/pets")
+app.include_router(characters_router, prefix="/pets")
 
 # app.include_router(user_router, prefix="/users")
 app.include_router(base_router, prefix="/home")
