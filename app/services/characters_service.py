@@ -7,18 +7,18 @@ db = firestore.client()
 def create_character(user_id: str, charac_id: str, nickname: str, animaltype: str, personality: str):
     """🔥 Firestore에 캐릭터 정보를 저장하는 함수"""
 
-    # ✅ Firestore에서 성격 정보 가져오기 (존재 여부 확인)
+    # ✅ Firestore에서 성격 정보 가져오기
     personality_ref = db.collection("personality").document(personality)
     personality_doc = personality_ref.get()
 
-    if not personality_doc.exists:
-        raise HTTPException(status_code=404, detail="Personality data not found")
+    if personality_doc is None or not personality_doc.exists:
+        raise HTTPException(status_code=404, detail=f"Personality data not found for ID: {personality}")
 
     personality_data = personality_doc.to_dict()
 
     # ✅ Firestore에 캐릭터 저장할 데이터 구성
     character_data = {
-        "charac_id": charac_id,  # ✅ 고유 ID (입력받거나 자동 생성 가능)
+        "charac_id": charac_id,  # ✅ 고유 ID
         "user_id": user_id,
         "nickname": nickname,
         "animaltype": animaltype,
@@ -29,10 +29,10 @@ def create_character(user_id: str, charac_id: str, nickname: str, animaltype: st
     # ✅ Firestore에 `characters` 컬렉션에 데이터 저장
     db.collection("characters").document(f"{user_id}_{charac_id}").set(character_data)
 
-    return {
-        **character_data,
-        "create_at": datetime.utcnow().isoformat()  # ✅ FastAPI에서 반환할 때 datetime 변환
-    }
+    # ✅ FastAPI 응답을 반환할 때 `create_at`을 `datetime`으로 변환
+    character_data["create_at"] = datetime.utcnow().isoformat()  # ✅ ISO 8601 변환
+
+    return character_data
 
 
 def get_character(user_id: str, charac_id: str):
@@ -41,13 +41,13 @@ def get_character(user_id: str, charac_id: str):
     char_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
     char_doc = char_ref.get()
 
-    if not char_doc.exists:
+    if not char_doc.exists():
         raise HTTPException(status_code=404, detail="Character not found")
 
     char_data = char_doc.to_dict()
 
     # ✅ Firestore Timestamp → Python datetime 변환
-    if isinstance(char_data.get("create_at"), firestore.SERVER_TIMESTAMP):
-        char_data["create_at"] = datetime.utcnow().isoformat()  # ✅ ISO 형식 변환
+    if isinstance(char_data.get("create_at"), firestore.firestore.Timestamp):
+        char_data["create_at"] = char_data["create_at"].isoformat()  # ✅ ISO 형식 변환
 
     return char_data

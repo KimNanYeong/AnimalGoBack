@@ -16,9 +16,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 db = firestore.client()
 GEMINI_MODEL = "gemini-2.0-flash-thinking-exp-01-21"
 
-def initialize_chat(user_id: str, pet_id: str, pet_data: dict):
+def initialize_chat(user_id: str, charac_id: str, character_data: dict):
     """채팅방이 존재하지 않으면 Firestore에 생성"""
-    chat_id = f"{user_id}_{pet_id}"
+    chat_id = f"{user_id}_{charac_id}"  # ✅ pet_id → charac_id 변경
     chat_ref = db.collection("chats").document(chat_id)
     chat_doc = chat_ref.get()
 
@@ -27,43 +27,46 @@ def initialize_chat(user_id: str, pet_id: str, pet_data: dict):
         chat_data = {
             "chat_id": chat_id,
             "user_id": user_id,
-            "nickname": pet_data["nickname"],
-            "personality": pet_data["personality"],
-            "animaltype": pet_data["animaltype"],
+            "nickname": character_data["nickname"],  # ✅ pet_data → character_data
+            "personality": character_data["personality"],  # ✅ pet_data → character_data
+            "animaltype": character_data["animaltype"],  # ✅ pet_data → character_data
             "create_at": firestore.SERVER_TIMESTAMP,
             "last_active_at": firestore.SERVER_TIMESTAMP,
             "last_message": None
         }
         chat_ref.set(chat_data)
 
-def get_pet_data(user_id: str, pet_id: str):
-    """Firestore에서 반려동물 데이터 가져오기 (characters 컬렉션 사용)"""
+
+def get_character_data(user_id: str, charac_id: str):
+    """Firestore에서 캐릭터 데이터 가져오기 (characters 컬렉션 사용)"""
     
-    character_ref = db.collection("characters").document(f"{user_id}_{pet_id}")
+    character_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
     character_doc = character_ref.get()
 
-    if not character_doc.exists:
-        print(f"❌ Firestore: 캐릭터 정보 없음 → user_id: {user_id}, pet_id: {pet_id}")
+    if character_doc is None or not character_doc.exists:
+        print(f"❌ Firestore: 캐릭터 정보 없음 → user_id: {user_id}, charac_id: {charac_id}")
         return None
 
     character_data = character_doc.to_dict()
-    
-    # ✅ 디버깅용 personality_id 확인
+
+    # ✅ animaltype 필드가 없을 경우 기본값 "미확인" 설정
+    animaltype = character_data.get("animaltype", "미확인")
+
+    # ✅ personality_id 확인
     personality_id = character_data.get("personality")
     if not personality_id:
-        print(f"❌ Firestore: personality ID 없음 → user_id: {user_id}, pet_id: {pet_id}")
+        print(f"❌ Firestore: personality ID 없음 → user_id: {user_id}, charac_id: {charac_id}")
         return None
 
-    print(f"✅ Firestore: personality_id={personality_id}")  # 디버깅 출력
+    print(f"✅ Firestore: personality_id={personality_id}, animaltype={animaltype}")  # 디버깅 출력
 
     return {
         "nickname": character_data.get("nickname"),
         "personality": personality_id,
-        "animaltype": character_data.get("animaltype", "동물"),
+        "animaltype": animaltype,  # ✅ 수정: 기본값 설정
         "speech_pattern": "",
         "speech_style": ""
     }
-
 
 
 def get_personality_data(personality_id: str):
@@ -99,32 +102,32 @@ def save_message(chat_id: str, sender: str, content: str):
     doc_ref = messages_ref.add(message_data)[1]
     return doc_ref
 
-def generate_ai_response(user_id: str, pet_id: str, user_input: str):
+def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     """AI 응답 생성"""
-    chat_id = f"{user_id}_{pet_id}"
+    chat_id = f"{user_id}_{charac_id}"  # ✅ pet_id → charac_id 변경
 
-    # ✅ 반려동물 기본 데이터 가져오기
-    pet_data = get_pet_data(user_id, pet_id)
-    if pet_data is None:
-        return None, "Pet data not found"
+    # ✅ 캐릭터 데이터 가져오기
+    character_data = get_character_data(user_id, charac_id)  # ✅ 함수명 수정
+    if character_data is None:
+        return None, "Character data not found"
 
     # ✅ 채팅방 초기화 (존재하지 않으면 생성)
-    initialize_chat(user_id, pet_id, pet_data)
+    initialize_chat(user_id, charac_id, character_data)
 
     # ✅ 성격 데이터 가져오기
-    personality_data = get_personality_data(pet_data["personality"])
+    personality_data = get_personality_data(character_data["personality"])
     if personality_data is None:
         return None, "Personality data not found"
 
     # ✅ 대화 스타일 설정
-    animaltype = pet_data["animaltype"]
+    animaltype = character_data["animaltype"]  # ✅ Firestore 필드명과 일치하게 수정
     speech_pattern = personality_data.get("species_speech_pattern", {}).get(animaltype, "{말투}")
     speech_style = personality_data.get("speech_style", "기본 말투")
 
     # ✅ 프롬프트 구성
     system_prompt = f"""
-    당신은 {animaltype}인 {pet_data['nickname']}입니다.
-    성격: {pet_data['personality']}
+    당신은 {animaltype}인 {character_data['nickname']}입니다.
+    성격: {character_data['personality']}
     말하는 스타일: {speech_style}
 
     다음 지침을 따라주세요:

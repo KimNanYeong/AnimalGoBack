@@ -37,9 +37,9 @@ async def get_chat_list(user_id: str):
 
             chat_list.append({
                 "chat_id": chat_id,
-                "nickname": chat_data.get("nickname", ""),  # ✅ `character_name` → `nickname` 변경
-                "personality": chat_data.get("personality", ""),  # ✅ `character_personality` → `personality` 변경
-                "create_at": chat_data.get("create_at", ""),  # ✅ `created_at` → `create_at` 변경
+                "nickname": chat_data.get("nickname", ""),
+                "personality": chat_data.get("personality", ""),
+                "create_at": chat_data.get("create_at", ""),
                 "last_active_at": chat_data.get("last_active_at", ""),
                 "last_message": last_message
             })
