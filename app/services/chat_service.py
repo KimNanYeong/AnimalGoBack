@@ -3,6 +3,8 @@ import google.generativeai as genai
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from fastapi import HTTPException
+
 
 # 환경 변수 설정
 env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
@@ -17,25 +19,31 @@ db = firestore.client()
 GEMINI_MODEL = "gemini-2.0-flash-thinking-exp-01-21"
 
 def initialize_chat(user_id: str, charac_id: str, character_data: dict):
-    """채팅방이 존재하지 않으면 Firestore에 생성"""
-    chat_id = f"{user_id}_{charac_id}"  # ✅ pet_id → charac_id 변경
+    """🔥 채팅방이 존재하지 않으면 Firestore에 자동 생성"""
+
+    chat_id = f"{user_id}_{charac_id}"
     chat_ref = db.collection("chats").document(chat_id)
     chat_doc = chat_ref.get()
 
-    # ✅ 채팅방이 존재하지 않으면 생성
+    # ✅ 채팅방이 존재하지 않고, 캐릭터가 삭제된 상태면 생성 안 함
+    character_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
+    if not character_ref.get().exists:
+        print(f"🚨 Character {charac_id} not found. Skipping chat creation.")
+        return
+
+    # ✅ 채팅방이 없을 경우에만 생성
     if not chat_doc.exists:
         chat_data = {
             "chat_id": chat_id,
             "user_id": user_id,
-            "nickname": character_data["nickname"],  # ✅ pet_data → character_data
-            "personality": character_data["personality"],  # ✅ pet_data → character_data
-            "animaltype": character_data["animaltype"],  # ✅ pet_data → character_data
+            "nickname": character_data["nickname"],
+            "personality": character_data["personality"],
+            "animaltype": character_data["animaltype"],
             "create_at": firestore.SERVER_TIMESTAMP,
             "last_active_at": firestore.SERVER_TIMESTAMP,
             "last_message": None
         }
         chat_ref.set(chat_data)
-
 
 def get_character_data(user_id: str, charac_id: str):
     """Firestore에서 캐릭터 데이터 가져오기 (characters 컬렉션 사용)"""
