@@ -11,7 +11,7 @@ def get_traits(species: str):
     - 사용자가 요청한 동물 종(`species`)에 따라 말투가 달라지도록 함.
     - 예: `GET /traits/고양이/` → 고양이 스타일로 응답
     """
-    traits_ref = db.collection("character_traits")
+    traits_ref = db.collection("personality")  # ✅ `character_traits` → `personality`
     docs = traits_ref.stream()
 
     traits = []

@@ -30,17 +30,17 @@ async def get_chat_list(user_id: str):
             chat_id = chat.id  # 문서 ID
 
             last_message = chat_data.get("last_message", {
-                "text": "",
+                "content": "",
                 "sender": "",
                 "timestamp": ""
             })
 
             chat_list.append({
                 "chat_id": chat_id,
-                "character_name": chat_data.get("character_name", ""),
-                "character_personality": chat_data.get("character_personality", ""),
-                "created_at": chat_data.get("created_at", ""),  # ✅ 변환 없이 Firestore Timestamp 그대로 사용
-                "last_active_at": chat_data.get("last_active_at", ""),  # ✅ 변환 없이 Firestore Timestamp 그대로 사용
+                "nickname": chat_data.get("nickname", ""),  # ✅ `character_name` → `nickname` 변경
+                "personality": chat_data.get("personality", ""),  # ✅ `character_personality` → `personality` 변경
+                "create_at": chat_data.get("create_at", ""),  # ✅ `created_at` → `create_at` 변경
+                "last_active_at": chat_data.get("last_active_at", ""),
                 "last_message": last_message
             })
 
