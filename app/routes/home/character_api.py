@@ -15,11 +15,8 @@ BASE_STORAGE_FOLDER = "C:/animal-storage"  # ------------- 삭제 예정
 class CharacterResponse(BaseModel):
     character_id: str
     nickname: str
-    personality: Optional[str] = "Unknown"
-    animaltype: Optional[str] = "Unknown"
     character_path: Optional[str] = None
     image_url: Optional[str] = None
-    created_at: Optional[str] = None
 
 class CharactersListResponse(BaseModel):
     user_id: str
@@ -61,7 +58,7 @@ async def update_character_nickname(
 
         # 🔹 캐릭터 데이터 가져오기
         character_data = character_doc.to_dict()
-        user_id = character_data.get("userId")
+        user_id = character_data.get("user_id")
         if not user_id:
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
@@ -117,8 +114,8 @@ async def get_user_characters(
     - **반환 값**: 사용자의 모든 '완료된' 캐릭터 목록 (배열 형태, 이미지 경로 포함)
     """
     try:
-        # 🔹 Firestore에서 `userId`가 일치하고 `status == "completed"`인 문서 조회
-        characters_ref = db.collection("characters").where("userId", "==", user_id).where("status", "==", "completed")
+        # 🔹 Firestore에서 `user_id`가 일치하고 `status == "completed"`인 문서 조회
+        characters_ref = db.collection("characters").where("user_id", "==", user_id).where("status", "==", "completed")
         characters_docs = characters_ref.stream()
 
         characters_list: List[CharacterResponse] = []
@@ -142,8 +139,7 @@ async def get_user_characters(
                 character_id=character_id,
                 nickname=character_data.get("nickname", "Unknown"),
                 character_path=character_path,
-                image_url=image_url,
-                created_at=str(character_data.get("created_at"))
+                image_url=image_url
             ))
 
         # ✅ 캐릭터가 없을 경우 200 OK 반환 + "보유중인 캐릭터가 없습니다." 메시지
@@ -200,7 +196,7 @@ async def upload_character_image(
 
         return {
             "characterId": character_id,
-            "userId": user_id,
+            "user_id": user_id,
             "character_path": character_path,
             "message": "Transformed character image updated successfully!"
         }
