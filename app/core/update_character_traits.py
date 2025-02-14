@@ -78,7 +78,7 @@ def update_character_traits():
     }
 
     for trait_id, trait_data in traits_data.items():
-        trait_ref = db.collection("personality").document(trait_id)
+        trait_ref = db.collection("personality_traits").document(trait_id)
         trait_ref.set(trait_data)  # ✅ Firestore에 데이터 저장
 
     print("✅ Firestore에 character_traits 업데이트 완료!")

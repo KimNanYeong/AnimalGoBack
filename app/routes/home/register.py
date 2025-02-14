@@ -61,31 +61,31 @@ def register_user(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==========================
-# 🔹 (간단) 로그인 API (폼 입력 지원)
-# ==========================
-@router.post("/login", tags=["Auth"], summary="(간단) 로그인", description="사용자가 로그인하여 인증을 수행하는 API")
-def login_user(
-    user_id: Annotated[str, Form(..., description="사용자 고유 ID (User's unique ID)")],
-    password: Annotated[str, Form(..., description="사용자 비밀번호 (Password for authentication)")]
-):
-    """
-    - **user_id**: 사용자 고유 ID
-    - **password**: 사용자가 입력한 비밀번호
-    """
-    try:
-        # Firestore에서 사용자 찾기
-        user_doc = db.collection("users").document(user_id).get()
-        if not user_doc.exists:
-            raise HTTPException(status_code=404, detail="User not found")
+# # ==========================
+# # 🔹 (간단) 로그인 API (폼 입력 지원)
+# # ==========================
+# @router.post("/login", tags=["Auth"], summary="(간단) 로그인", description="사용자가 로그인하여 인증을 수행하는 API")
+# def login_user(
+#     user_id: Annotated[str, Form(..., description="사용자 고유 ID (User's unique ID)")],
+#     password: Annotated[str, Form(..., description="사용자 비밀번호 (Password for authentication)")]
+# ):
+#     """
+#     - **user_id**: 사용자 고유 ID
+#     - **password**: 사용자가 입력한 비밀번호
+#     """
+#     try:
+#         # Firestore에서 사용자 찾기
+#         user_doc = db.collection("users").document(user_id).get()
+#         if not user_doc.exists:
+#             raise HTTPException(status_code=404, detail="User not found")
 
-        user_data = user_doc.to_dict()
-        stored_hashed_password = user_data.get("hashed_password")
+#         user_data = user_doc.to_dict()
+#         stored_hashed_password = user_data.get("hashed_password")
 
-        # 비밀번호 검증
-        if not verify_password(password, stored_hashed_password):
-            raise HTTPException(status_code=401, detail="Invalid password")
+#         # 비밀번호 검증
+#         if not verify_password(password, stored_hashed_password):
+#             raise HTTPException(status_code=401, detail="Invalid password")
 
-        return {"userId": user_id, "user_nickname": user_data["user_nickname"], "message": "Login successful!"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {"userId": user_id, "user_nickname": user_data["user_nickname"], "message": "Login successful!"}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
