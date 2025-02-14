@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 import httpx
 # from services.image_service import fetch_character_info
 import services.image_service as imgserv
@@ -10,27 +10,31 @@ router = APIRouter()
 COMFYUI_URL = "http://127.0.0.1:8188"
 
 @router.post("/send-charater/{character_id}")
-async def send_character(character_id: str):
+async def send_character(character_id: str, background_tasks: BackgroundTasks):
     """
     캐릭터 ID를 받아 캐릭터 정보를 반환하는 API
     :param character_id: 캐릭터 ID
     :return: 캐릭터 정보 반환
     """
-    try:
+    # try:
         # 캐릭터 정보를 가져오는 함수
-        character_info = await imgserv.fetch_character_info(character_id)
-        workflow_json = await imgserv.json_update(character_info["animal_type"], character_info["appearance"], character_info["image_path"])
-        workflow_json["character_id"] = character_id
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": workflow_json})
+    character_info = await imgserv.fetch_character_info(character_id)
+    workflow_json = await imgserv.json_update(character_info["animal_type"], character_info["appearance"], character_info["image_path"])
+    # workflow_json["character_id"] = character_id
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": workflow_json})
+        prompt_id = response.json()
+        print(prompt_id)
+        if response.status_code == 200:
+            if response.json()["prompt_id"]:
+                background_tasks.add_task(imgserv.get_image, response.json()["prompt_id"], character_id)
             print(response)
-            if response.status_code == 200:
-                return {"status": "success", "message": "ComfyUI 서버 연결됨"}
-            else:
-                return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
+            return {"status": "success", "message": "ComfyUI 서버 연결됨"}
+        else:
+            return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
 
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    # except Exception as e:
+    #     raise HTTPException(status_code=404, detail=str(e))
 
 # @router.get("/check-comfyui")
 # async def check_comfyui():
