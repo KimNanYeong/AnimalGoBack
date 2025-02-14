@@ -29,7 +29,7 @@ async def chat_with_ai(
         raise HTTPException(status_code=404, detail="Character data not found")  # ✅ pet → character 변경
 
     # ✅ 사용자 메시지 저장 (채팅 기록에 저장)
-    save_message(chat_id, "user", user_input)
+    save_message(chat_id, user_id, user_input)
 
     # ✅ AI 응답 생성
     ai_response, error = generate_ai_response(user_id, charac_id, user_input)  # ✅ pet_id → charac_id 변경
@@ -37,7 +37,7 @@ async def chat_with_ai(
         raise HTTPException(status_code=500, detail=error)
 
     # ✅ AI 응답 저장
-    save_message(chat_id, "ai", ai_response)
+    save_message(chat_id, charac_id, ai_response)
 
     # ✅ Firestore `chats/{chat_id}` 문서의 `last_message` 업데이트
     chat_ref = db.collection("chats").document(chat_id)
@@ -47,7 +47,7 @@ async def chat_with_ai(
         {
             "last_message": {
                 "content": ai_response,
-                "sender": "ai",
+                "sender": charac_id,
                 "timestamp": firestore.SERVER_TIMESTAMP
             },
             "last_active_at": firestore.SERVER_TIMESTAMP
