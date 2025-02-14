@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 import httpx
+import asyncio
 # from services.image_service import fetch_character_info
 import services.image_service as imgserv
 # from services.image_service import get_saved_images
@@ -23,15 +24,20 @@ async def send_character(character_id: str, background_tasks: BackgroundTasks):
     # workflow_json["character_id"] = character_id
     async with httpx.AsyncClient() as client:
         response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": workflow_json})
-        prompt_id = response.json()
-        print(prompt_id)
-        if response.status_code == 200:
-            if response.json()["prompt_id"]:
-                background_tasks.add_task(imgserv.get_image, response.json()["prompt_id"], character_id)
+        # prompt_id = response.json()
+        # print(prompt_id)
+
+    if response.status_code == 200:
+        # response_data = response.json()
+        prompt_id = response.json().get("prompt_id")
+        # if response.json()["prompt_id"]:
+        if prompt_id:
+            asyncio.create_task(imgserv.get_image(prompt_id, character_id))
+            # background_tasks.add_task(asyncio.to_thread, imgserv.get_image, response.json()["prompt_id"], character_id)
             print(response)
-            return {"status": "success", "message": "ComfyUI 서버 연결됨"}
-        else:
-            return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
+        return {"status": "success", "message": "ComfyUI 서버 연결됨"}
+    else:
+        return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
 
     # except Exception as e:
     #     raise HTTPException(status_code=404, detail=str(e))

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import requests
@@ -5,7 +6,7 @@ import urllib.request
 import websocket
 import io
 from PIL import Image
-from db.firestore import save_to_firestore
+import random
 from core.firebase import db
 import routes.home.character_api as home_charac
 
@@ -13,6 +14,9 @@ COMFYUI_SERVER_URL = "127.0.0.1:8188"  # ComfyUI 서버 URL
 COMFYUI_WORKFLOW_PATH = "app/db/comfyui_workflow.json"  # 워크플로우 JSON 파일 경로
 # DEFAULT_OUTPUT_FILENAME = "output/generated_image.png"  # 생성된 이미지 저장 경로
 
+def generate_random_seed():
+    """64비트 정수 범위 내 랜덤 seed 생성"""
+    return random.randint(0, 2**63 - 1)
 
 async def fetch_character_info(charac_id: str) -> dict:
     """
@@ -58,6 +62,17 @@ async def json_update(animal_type: str, appearance: str, image_path: str):
         print(f"[update_workflow_json] Updated node 6 text -> {new_text}")
     else:
         raise KeyError("JSON 데이터에 6번 노드가 없거나 inputs 필드가 없습니다.")
+    
+    def generate_random_seed():
+        return random.randint(0, 2**63 - 1)  # 64비트 정수 범위 내 랜덤 값 생성
+
+    # 16번 노드의 seed 값을 업데이트
+    new_seed = generate_random_seed()  # 새로운 랜덤 seed 생성
+    if "16" in workflow_data and "inputs" in workflow_data["16"]:
+        workflow_data["16"]["inputs"]["seed"] = new_seed
+        print(f"[update_workflow_json] Updated node 16 seed -> {new_seed}")
+    else:
+        raise KeyError("JSON 데이터에 16번 노드가 없거나 inputs 필드가 없습니다.")
 
     return workflow_data
 
@@ -107,17 +122,20 @@ async def get_character(character_id:str):
 #     except Exception as e:
 #         print(f"[generate_image] 에러 발생: {e}")
 #         return ""
+
 async def get_image(prompt_id: str, character_id: str):
-    # ComfyUI 서버에 요청을 보냅니다.
-    ws = websocket.WebSocket()
-    ws.connect(f"ws://{COMFYUI_SERVER_URL}/ws")
+    loop = asyncio.get_running_loop()
+    # blocking한 WebSocket 객체 생성 및 연결은 별도 스레드에서 실행
+    ws = await loop.run_in_executor(None, websocket.WebSocket)
+    await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
     
     print(f"Waiting for image data for prompt ID: {prompt_id}")
     
     while True:
-        message = ws.recv()
+        # ws.recv()는 blocking 함수이므로 run_in_executor로 호출
+        message = await loop.run_in_executor(None, ws.recv)
+        
         if isinstance(message, str):
-            # text = message.decode('utf-8')
             data = json.loads(message)
             print(f"Received message: {data}")
             if data['type'] == 'executing':
@@ -131,28 +149,70 @@ async def get_image(prompt_id: str, character_id: str):
         elif isinstance(message, bytes):
             img_io = io.BytesIO(message[8:])
             img = Image.open(img_io)
-
-            # 이미지 포맷(예: 'JPEG', 'PNG') 확인 후 소문자로 변환
+            
+            # 이미지 포맷 확인 및 필요시 변환
             img_format = img.format.lower() if img.format else 'jpeg'
-
-            # JPEG인 경우 RGB 모드로 변환 (필요한 경우)
             if img_format == 'jpeg' and img.mode != 'RGB':
                 img = img.convert('RGB')
-
-            # 메모리 내 새로운 BytesIO 객체에 이미지 저장
+            
+            # 새로운 BytesIO 객체에 이미지 저장
             output_io = io.BytesIO()
             img.save(output_io, format=img.format)
-            # 파일 객체처럼 동작하도록 filename 속성 추가 (예: "character.jpeg")
             setattr(output_io, "filename", f"character.{img_format}")
-
-            # 버퍼의 포인터를 처음으로 되돌림
             output_io.seek(0)
-
-            # 생성된 메모리 내 파일 객체를 업로드
+            
+            # 업로드는 비동기 함수이므로 바로 await 호출
             await home_charac.upload_character_image(character_id, output_io)
-            # file_obj = io.BytesIO(message)
-            # setattr(file_obj, "filename", "charter.jpg")
-            # print("Received binary data (likely image)")
-            # home_charac.upload_character_image(character_id, file_obj)
     
-    ws.close()
+    # WebSocket 종료도 blocking이므로 run_in_executor로 처리
+    await loop.run_in_executor(None, ws.close)
+
+# async def get_image(prompt_id: str, character_id: str):
+#     # ComfyUI 서버에 요청을 보냅니다.
+#     ws = websocket.WebSocket()
+#     ws.connect(f"ws://{COMFYUI_SERVER_URL}/ws")
+    
+#     print(f"Waiting for image data for prompt ID: {prompt_id}")
+    
+#     while True:
+#         message = ws.recv()
+#         if isinstance(message, str):
+#             # text = message.decode('utf-8')
+#             data = json.loads(message)
+#             print(f"Received message: {data}")
+#             if data['type'] == 'executing':
+#                 if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
+#                     print("Execution completed")
+#                     break
+#             if data['type'] == 'status':
+#                 if data['data']['status']['exec_info']['queue_remaining'] == 0:
+#                     print("Execution completed")
+#                     break
+#         elif isinstance(message, bytes):
+#             img_io = io.BytesIO(message[8:])
+#             img = Image.open(img_io)
+
+#             # 이미지 포맷(예: 'JPEG', 'PNG') 확인 후 소문자로 변환
+#             img_format = img.format.lower() if img.format else 'jpeg'
+
+#             # JPEG인 경우 RGB 모드로 변환 (필요한 경우)
+#             if img_format == 'jpeg' and img.mode != 'RGB':
+#                 img = img.convert('RGB')
+
+#             # 메모리 내 새로운 BytesIO 객체에 이미지 저장
+#             output_io = io.BytesIO()
+#             img.save(output_io, format=img.format)
+#             # 파일 객체처럼 동작하도록 filename 속성 추가 (예: "character.jpeg")
+#             setattr(output_io, "filename", f"character.{img_format}")
+
+#             # 버퍼의 포인터를 처음으로 되돌림
+#             output_io.seek(0)
+
+#             # 생성된 메모리 내 파일 객체를 업로드
+#             await home_charac.upload_character_image(character_id, output_io)
+#             # file_obj = io.BytesIO(message)
+#             # setattr(file_obj, "filename", "charter.jpg")
+#             # print("Received binary data (likely image)")
+#             # home_charac.upload_character_image(character_id, file_obj)
+    
+#     ws.close()
