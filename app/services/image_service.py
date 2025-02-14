@@ -58,6 +58,15 @@ async def json_update(animal_type: str, appearance: str, image_path: str):
 
     return workflow_data
 
+async def get_character(character_id:str):
+    doc_ref = db.collection("characters").document(character_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise ValueError(f"캐릭터 정보를 찾을 수 없습니다. (ID: {character_id})")
+    data = doc.to_dict()
+    return data
+
+
 # def queue_prompt(prompt: Dict[str, Any]) -> Dict[str, Any]:
 #     """
 #     ComfyUI 서버에 프롬프트(워크플로우) 데이터를 전송하여 큐잉합니다.
