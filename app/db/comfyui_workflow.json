@@ -1,7 +1,7 @@
 {
   "6": {
     "inputs": {
-      "text": "<lora:xtxm:1> xtxm, no humans, simple background, white background, animal focus, sitting, solo, animal, looking at viewer, (adorable:1.2), (cute face:1.3), (chibi style:1.3), (cartoonish:1.2), (smooth fur), (detailed paws:1.1), (squred features:1.2), (muted tones:1.2), (none background), (focus animal)",
+      "text": "<lora:xtxm:1> xtxm, no humans,simple background, white background, animal focus, sitting, solo, animal, looking at viewer, (adorable:1.2), (cute face:1.3), (chibi style:1.3), (cartoonish:1.2), (smooth fur), (detailed paws:1.1), (squred features:1.2), (muted tones:1.2), only animal pixel-art, none background, focus animal",
       "clip": [
         "25",
         1
@@ -14,7 +14,7 @@
   },
   "7": {
     "inputs": {
-      "text": "nsfw, ng_deepnegative_v1_75t, badhandv4, (worst quality:2), (low quality:2), (normal quality:2), lowres, watermark, monochrome, (realistic fur), (realistic eyes), (hyper-realistic), (photorealistic), (highly detailed), (sharp focus), (overexposed), (underexposed), (grainy), (noisy), (blurry), (distorted), (deformed), (mutated), (ugly), (bad anatomy), (bad proportions), (extra limbs), (disfigured), (out of frame), (duplicate), (signature), (text), (logo), (border), (frame), (cross-eye), (body out of frame), (bad art), (close-up), (complexed background), (colorful background), realistic, (3d render), outline, background",
+      "text": "nsfw, ng_deepnegative_v1_75t, badhandv4, (worst quality:2), (low quality:2), (normal quality:2), watermark, monochrome, (realistic fur), (realistic eyes), (hyper-realistic), (photorealistic), (highly detailed), (sharp focus), (overexposed), (underexposed), (grainy), (noisy), (deformed), (mutated), (ugly), (bad anatomy), (bad proportions), (extra limbs), (disfigured), (out of frame), (duplicate), (signature), (text), (logo), (border), (frame), (cross-eye), (body out of frame), (bad art), (close-up), complexed background, colorful background, realistic, 3d render, outline",
       "clip": [
         "25",
         1
@@ -27,7 +27,7 @@
   },
   "10": {
     "inputs": {
-      "image": "bird.jpg",
+      "image": "cat2.jpg",
       "upload": "image"
     },
     "class_type": "LoadImage",
@@ -62,12 +62,12 @@
   },
   "16": {
     "inputs": {
-      "seed": 297932209466969,
-      "steps": 20,
+      "seed": 986346229277428,
+      "steps": 30,
       "cfg": 7,
-      "sampler_name": "euler_ancestral",
+      "sampler_name": "euler",
       "scheduler": "karras",
-      "denoise": 0.32,
+      "denoise": 0.5,
       "model": [
         "25",
         0
@@ -106,24 +106,11 @@
       "title": "VAE Decode"
     }
   },
-  "19": {
-    "inputs": {
-      "filename_prefix": "pixel2/ComfyUI",
-      "images": [
-        "18",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
   "25": {
     "inputs": {
       "lora_name": "pixel-art-xl-v1.1.safetensors",
       "strength_model": 1,
-      "strength_clip": 1,
+      "strength_clip": 0.7000000000000001,
       "model": [
         "14",
         0
@@ -136,6 +123,30 @@
     "class_type": "LoraLoader",
     "_meta": {
       "title": "Load LoRA"
+    }
+  },
+  "40": {
+    "inputs": {
+      "images": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "41": {
+    "inputs": {
+      "images": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "SaveImageWebsocket",
+    "_meta": {
+      "title": "SaveImageWebsocket"
     }
   }
 }
