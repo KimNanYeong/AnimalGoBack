@@ -6,6 +6,7 @@ router = APIRouter()
 @router.get("/get_metadata",tags=["create"],summary="외모,성격 특징 가져오기",description="외모,성격 특징을 가져옵니다")
 async def get_appearance():
     collection = db.collection("appearance_traits").get()
+    
     appearance_list = []
     for doc in collection:
         # print(doc.id)
