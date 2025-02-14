@@ -76,4 +76,4 @@ app.include_router(create_router, prefix="/create")
 
 # ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
