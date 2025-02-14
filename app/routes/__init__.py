@@ -16,3 +16,5 @@ from .home.base import router as base_router
 from .home.image_upload import router as image_router
 from .home.character_api import router as character_router
 from .home.register import router as register_router
+
+from .image.ShowImageRoutes import router as show_image_router
