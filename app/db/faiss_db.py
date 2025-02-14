@@ -23,29 +23,29 @@ def ensure_faiss_directory():
     """FAISS 저장 경로가 없으면 자동으로 생성"""
     if not os.path.exists(FAISS_INDEX_DIR):
         os.makedirs(FAISS_INDEX_DIR)
-        print(f"✅ FAISS 저장 경로 생성됨: {FAISS_INDEX_DIR}")
+        # print(f"✅ FAISS 저장 경로 생성됨: {FAISS_INDEX_DIR}")
 
 def save_faiss_index(chat_id, index):
     """채팅방별 FAISS 벡터 DB를 파일로 저장"""
     ensure_faiss_directory()  # ✅ 경로 확인 후 생성
     faiss.write_index(index, get_faiss_index_path(chat_id))
-    print(f"✅ FAISS 인덱스 저장 완료! ({chat_id})")
+    # print(f"✅ FAISS 인덱스 저장 완료! ({chat_id})")
 
 def load_faiss_index(chat_id):
     """채팅방별 FAISS 벡터 DB를 파일에서 불러오기"""
     index_path = get_faiss_index_path(chat_id)
-    print(f"🟢 FAISS 인덱스 로드 시도: {index_path}")  # ✅ 디버깅용 출력
+    # print(f"🟢 FAISS 인덱스 로드 시도: {index_path}")  # ✅ 디버깅용 출력
 
     if os.path.exists(index_path):
         index = faiss.read_index(index_path)
-        print(f"✅ FAISS 인덱스 로드 완료! ({chat_id}) 저장된 개수: {index.ntotal}")
+        # print(f"✅ FAISS 인덱스 로드 완료! ({chat_id}) 저장된 개수: {index.ntotal}")
 
         # ✅ 기존 문서 데이터도 불러오기
         if chat_id not in doc_store:
             doc_store[chat_id] = {}
         return index
     else:
-        print(f"⚠️ FAISS 인덱스 없음, 새로 생성 ({chat_id})")
+        # print(f"⚠️ FAISS 인덱스 없음, 새로 생성 ({chat_id})")
         return faiss.IndexFlatL2(dimension)  # 차원 수는 모델에 맞게 조정
 
 def delete_faiss_index(chat_id):
@@ -85,7 +85,7 @@ def store_chat_in_faiss(chat_id):
 
     # ✅ 채팅방별 FAISS 저장 (index를 전달해야 함!)
     save_faiss_index(chat_id, index)  # 🔥 수정된 부분
-    print(f"✅ FAISS 저장 완료! (chat_id={chat_id}) 저장된 문장 개수: {index.ntotal}")
+    # print(f"✅ FAISS 저장 완료! (chat_id={chat_id}) 저장된 문장 개수: {index.ntotal}")
 
 def search_similar_messages(chat_id, query, top_k=5):
     """채팅방별 FAISS 벡터 DB에서 유사한 메시지 검색"""

@@ -67,7 +67,7 @@ def get_character_data(user_id: str, charac_id: str):
         print(f"❌ Firestore: personality ID 없음 → user_id: {user_id}, charac_id: {charac_id}")
         return None
 
-    print(f"✅ Firestore: personality_id={personality_id}, animaltype={animaltype}")  # 디버깅 출력
+    # print(f"✅ Firestore: personality_id={personality_id}, animaltype={animaltype}")  # 디버깅 출력
 
     return {
         "nickname": character_data.get("nickname"),
@@ -159,10 +159,10 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     similar_messages = search_similar_messages(chat_id, user_input, top_k=3)
 
     # ✅ 디버깅용 출력
-    print(f"🔍 검색어: {user_input}")
-    print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
-    for msg in similar_messages:
-        print(f"✅ {msg}")
+    # print(f"🔍 검색어: {user_input}")
+    # print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
+    # for msg in similar_messages:
+    #     print(f"✅ {msg}")
 
     retrieved_context = "\n".join(similar_messages)
     

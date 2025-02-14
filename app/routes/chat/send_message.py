@@ -69,9 +69,9 @@ async def chat_with_ai(
 
     try:
         batch.commit()  # ✅ Firestore에 한 번에 저장
-        print(f"✅ Firestore 저장 완료: chat_id={chat_id}")
+        # print(f"✅ Firestore 저장 완료: chat_id={chat_id}")
     except Exception as e:
-        print(f"🚨 Firestore 저장 오류: {str(e)}")
+        # print(f"🚨 Firestore 저장 오류: {str(e)}")
         raise HTTPException(status_code=500, detail="Firestore 저장 중 오류 발생")
 
     # ✅ Firestore 저장 후 해당 채팅방의 FAISS 벡터 DB에 저장
