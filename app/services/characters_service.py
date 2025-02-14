@@ -2,6 +2,7 @@ from firebase_admin import firestore
 from fastapi import HTTPException
 from datetime import datetime
 from services import initialize_chat
+from db.faiss_db import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
 
 
 db = firestore.client()
@@ -57,8 +58,10 @@ def get_character(user_id: str, charac_id: str):
 
     return char_data
 
+from db.faiss_db import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
+
 def delete_character(user_id: str, charac_id: str):
-    """🔥 캐릭터를 삭제하면 연결된 채팅방도 자동으로 삭제"""
+    """🔥 캐릭터를 삭제하면 연결된 채팅방 및 FAISS 데이터도 삭제"""
 
     char_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
     char_doc = char_ref.get()
@@ -87,4 +90,8 @@ def delete_character(user_id: str, charac_id: str):
         chat_ref.delete()
         print(f"✅ Chat {chat_id} deleted")
 
-    return {"message": f"Character {charac_id} and its chat deleted successfully"}
+    # ✅ FAISS 인덱스 삭제 추가
+    delete_faiss_index(chat_id)
+    print(f"🗑️ FAISS 인덱스 삭제 완료: {chat_id}")
+
+    return {"message": f"Character {charac_id} and its chat & FAISS index deleted successfully"}
