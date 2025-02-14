@@ -10,6 +10,9 @@ from firebase_admin import credentials, firestore
 # from app.core.firebase import db  # Firestore 초기화 모듈f
 from core import db
 
+# ✅ FAISS 벡터 DB 관련 모듈 추가!
+from db.faiss_db import ensure_faiss_directory
+
 # ✅ 라우트 (API 엔드포인트) 불러오기
 # from app.routes.chat.chat import router as chat_router
 # from app.routes.chat.chat_history import router as chat_history_router
@@ -46,6 +49,9 @@ app.add_middleware(
     allow_methods=["*"],  # 모든 HTTP 메서드 허용 (GET, POST, DELETE 등)
     allow_headers=["*"],  # 모든 요청 헤더 허용
 )
+
+# ✅ 서버 시작 시 FAISS 저장 디렉토리 자동 생성!
+ensure_faiss_directory()
 
 #User Router
 app.include_router(user_router)

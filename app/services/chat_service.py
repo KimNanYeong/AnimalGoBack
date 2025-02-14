@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 from fastapi import HTTPException
+from db.faiss_db import search_similar_messages, store_chat_in_faiss
 
 
 # 환경 변수 설정
@@ -78,16 +79,37 @@ def get_character_data(user_id: str, charac_id: str):
 
 
 def get_personality_data(personality_id: str):
-    """성격 데이터를 가져오는 함수"""
-    personality_ref = db.collection("personality_traits").document(personality_id)
-    personality_doc = personality_ref.get()
+    """🔥 Firestore에서 성격 데이터를 가져오는 함수"""
+    try:
+        personality_ref = db.collection("personality_traits").document(personality_id)
+        personality_doc = personality_ref.get()
 
-    # ✅ Firestore 문서가 있는지 확인할 때 None 체크 추가
-    if personality_doc is None or not personality_doc.exists:
-        print(f"❌ Firestore: personality_id={personality_id} 문서를 찾을 수 없음.")
-        return None
-        
-    return personality_doc.to_dict()
+        if not personality_doc.exists:
+            print(f"⚠️ Firestore: personality_id={personality_id} 문서를 찾을 수 없음. 기본 데이터 사용.")
+            return {
+                "description": "기본 성격",
+                "emoji_style": "🙂",
+                "id": "default",
+                "name": "기본",
+                "prompt_template": "나는 친절한 말투로 대답할게!",
+                "species_speech_pattern": {},
+                "speech_style": "기본 말투"
+            }
+
+        return personality_doc.to_dict()
+
+    except Exception as e:
+        print(f"🚨 Firestore에서 personality_id={personality_id} 데이터를 가져오는 중 오류 발생: {str(e)}")
+        return {
+            "description": "기본 성격",
+            "emoji_style": "🙂",
+            "id": "default",
+            "name": "기본",
+            "prompt_template": "나는 친절한 말투로 대답할게!",
+            "species_speech_pattern": {},
+            "speech_style": "기본 말투"
+        }
+
 
 def get_recent_messages(chat_id: str, limit: int = 10):
     """최근 메시지 가져오기"""
@@ -111,49 +133,77 @@ def save_message(chat_id: str, sender: str, content: str):
     return doc_ref
 
 def generate_ai_response(user_id: str, charac_id: str, user_input: str):
-    """AI 응답 생성"""
-    chat_id = f"{user_id}_{charac_id}"  # ✅ pet_id → charac_id 변경
+    """🔥 RAG 기반 AI 응답 생성 (FAISS 벡터 검색 적용)"""
+    chat_id = f"{user_id}_{charac_id}"  # ✅ 채팅방 ID
 
-    # ✅ 캐릭터 데이터 가져오기
-    character_data = get_character_data(user_id, charac_id)  # ✅ 함수명 수정
-    if character_data is None:
+    # ✅ Firestore에서 캐릭터 데이터 가져오기
+    character_ref = db.collection("characters").document(chat_id)
+    character_doc = character_ref.get()
+
+    if not character_doc.exists:
         return None, "Character data not found"
 
-    # ✅ 채팅방 초기화 (존재하지 않으면 생성)
-    initialize_chat(user_id, charac_id, character_data)
+    character_data = character_doc.to_dict()
+    personality_id = character_data.get("personality", "default")
+    animaltype = character_data.get("animaltype", "알 수 없음")
+    nickname = character_data.get("nickname", "이름 없음")
 
-    # ✅ 성격 데이터 가져오기
-    personality_data = get_personality_data(character_data["personality"])
-    if personality_data is None:
-        return None, "Personality data not found"
+    # ✅ Firestore에서 성격(personality) 데이터 가져오기
+    personality_data = get_personality_data(personality_id)
 
-    # ✅ 대화 스타일 설정
-    animaltype = character_data["animaltype"]  # ✅ Firestore 필드명과 일치하게 수정
-    speech_pattern = personality_data.get("species_speech_pattern", {}).get(animaltype, "{말투}")
     speech_style = personality_data.get("speech_style", "기본 말투")
+    species_speech_pattern = personality_data.get("species_speech_pattern", {}).get(animaltype, "")
+    emoji_style = personality_data.get("emoji_style", "")
 
+    # ✅ 벡터 검색으로 문맥 가져오기 (채팅방별 FAISS 검색)
+    similar_messages = search_similar_messages(chat_id, user_input, top_k=3)
+
+    # ✅ 디버깅용 출력
+    print(f"🔍 검색어: {user_input}")
+    print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
+    for msg in similar_messages:
+        print(f"✅ {msg}")
+
+    retrieved_context = "\n".join(similar_messages)
+    
     # ✅ 프롬프트 구성
     system_prompt = f"""
-    당신은 {animaltype}인 {character_data['nickname']}입니다.
-    성격: {character_data['personality']}
-    말하는 스타일: {speech_style}
+    📌 **역할과 성격**
+    당신은 사용자의 반려동물인 {animaltype} {nickname}입니다.
+    당신의 성격은 "{personality_id}"이며, 대화 스타일은 "{speech_style}"입니다.
+    
+    📌 **이모지 스타일**
+    - "{emoji_style}" 같은 이모지를 대화에서 자연스럽게 활용하세요.
 
-    다음 지침을 따라주세요:
-    1. 항상 {animaltype}의 입장에서 대화하세요.
-    2. {speech_pattern} 같은 의성어를 자연스럽게 섞어서 사용하세요.
-    3. 응답은 간결하고 자연스럽게, 마치 카카오톡으로 대화하듯이 해주세요.
-    4. 불필요한 인사말이나 형식적인 문구는 제외하고, 대화의 맥락에 맞게 바로 답변해주세요.
-    5. 이모지는 적절히 사용하되 과하지 않게 해주세요.
+    📌 **대화 스타일**
+    - 항상 {animaltype}의 입장에서 대화하세요.
+    - 감정을 담아 자연스럽게 반응하고, 사용자의 감정을 고려하여 적절한 어조를 사용하세요.
+    - "{species_speech_pattern}" 같은 종특적인 말투를 자연스럽게 활용하세요.
+    - 간결하고 직관적인 문장을 사용하며, 너무 길거나 딱딱한 표현은 피하세요.
+    - 필요하면 이모지(🐶🐱💕) 등을 적절히 사용하여 친근한 느낌을 살리세요.
+
+    📌 **과거 대화 문맥**
+    {retrieved_context}
+
+    💡 **대화 문맥을 유지하는 중요한 규칙**
+    1. **"나","내가"**는 항상 **사용자를 의미**합니다. (즉, 질문을 입력한 사람)  
+    2. **"너"**는 **{nickname} (즉, AI 캐릭터)**을 의미합니다.  
+    3. 사용자가 전에 했던 말을 기억하고, 관련된 정보를 포함하여 응답하세요.  
+    4. 만약 기억해야 할 정보가 없다면, 자연스럽게 넘기거나 다시 물어보세요.  
+
+    📌 **추가 지침**
+    - 불필요한 인사말은 생략하고, 대화의 흐름을 유지하세요.
+    - 특정 질문에 대한 답변을 모르면, "잘 모르겠지만 네가 알려주면 기억할게!" 같은 방식으로 반응하세요.
+    - 지나치게 공식적이지 않도록, 친근하고 유쾌한 말투를 유지하세요.
+
+    📝 **사용자의 질문**  
+    "{user_input}"
     """
-
-    # ✅ 최근 메시지 가져오기
-    chat_history = get_recent_messages(chat_id)
-    formatted_history = [msg["content"] for msg in chat_history]
 
     try:
         # ✅ Gemini API 호출
         model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content([system_prompt, *formatted_history, user_input])
+        response = model.generate_content([system_prompt])
 
         if not response.text:
             return None, "Empty response from Gemini API"
@@ -163,18 +213,13 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
         ai_response = ai_response.replace("안녕하세요!", "").replace("반갑습니다!", "")
         ai_response = ' '.join(ai_response.split())
 
-        # ✅ last_message 필드 업데이트
-        db.collection("chats").document(chat_id).update({
-            "last_active_at": firestore.SERVER_TIMESTAMP,
-            "last_message": {
-                "content": ai_response,
-                "sender": "ai",
-                "timestamp": firestore.SERVER_TIMESTAMP
-            }
-        })
+        # 🚨 Firestore 저장 제거 → `send_message.py`에서 처리!
+        
+        # ✅ FAISS 벡터 DB에 새로운 대화 저장 (채팅방별 저장)
+        store_chat_in_faiss(chat_id)
 
         return ai_response, None
 
     except Exception as e:
-        print(f"Error in generate_ai_response: {str(e)}")
+        print(f"🚨 Error in generate_ai_response: {str(e)}")
         return None, f"API Error: {str(e)}"

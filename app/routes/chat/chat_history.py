@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
 from datetime import datetime, timezone, timedelta
+from db.faiss_db import store_chat_in_faiss
 
 
 # ✅ Firestore 클라이언트 연결
@@ -51,5 +52,14 @@ async def get_chat_history(chat_id: str):
 
         return {"chat_id": chat_id, "messages": messages}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/chat/history/{chat_id}/store")
+async def store_chat_in_vector_db(chat_id: str):
+    """Firestore의 특정 채팅방 대화를 FAISS 벡터 DB에 저장"""
+    try:
+        store_chat_in_faiss(chat_id)
+        return {"message": f"Chat history for {chat_id} stored in FAISS"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
