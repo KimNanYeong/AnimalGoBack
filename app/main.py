@@ -31,7 +31,7 @@ from routes import user_router
 # from app.routes.home.base import router as base_router
 # from app.routes.home.image_upload import router as image_router
 # from app.routes.home.character import router as character_router
-from routes import base_router, image_router, character_router, register_router
+from routes import base_router, image_router, character_router, register_router, login_router
 
 from routes import *
 
@@ -70,6 +70,8 @@ app.include_router(base_router, prefix="/home")
 app.include_router(image_router, prefix="/home")
 app.include_router(character_router, prefix="/home")
 app.include_router(register_router, prefix="/home")
+app.include_router(login_router, prefix="/home")
+
 
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
