@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from services.chat_service import generate_ai_response, get_character_data
+from services.chat_service import generate_ai_response, get_character_data, initialize_chat
 from firebase_admin import firestore
 from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
 
@@ -29,6 +29,9 @@ async def chat_with_ai(
     character_data = get_character_data(user_id, charac_id)
     if character_data is None:
         raise HTTPException(status_code=404, detail="Character data not found")
+
+    # ✅ 채팅방이 존재하지 않으면 자동 생성
+    initialize_chat(user_id, charac_id, character_data)  # 🔥 여기에 추가
 
     messages_ref = db.collection("chats").document(chat_id).collection("messages")
 
@@ -69,9 +72,7 @@ async def chat_with_ai(
 
     try:
         batch.commit()  # ✅ Firestore에 한 번에 저장
-        print(f"✅ Firestore 저장 완료: chat_id={chat_id}")
     except Exception as e:
-        print(f"🚨 Firestore 저장 오류: {str(e)}")
         raise HTTPException(status_code=500, detail="Firestore 저장 중 오류 발생")
 
     # ✅ Firestore 저장 후 해당 채팅방의 FAISS 벡터 DB에 저장

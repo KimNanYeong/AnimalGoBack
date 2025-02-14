@@ -32,19 +32,56 @@ def initialize_chat(user_id: str, charac_id: str, character_data: dict):
         print(f"🚨 Character {charac_id} not found. Skipping chat creation.")
         return
 
+    # ✅ character_data가 None일 경우 기본값 설정
+    if not character_data:
+        print(f"⚠️ character_data is None for {charac_id}, using default values.")
+        character_data = {
+            "nickname": "이름 없음",
+            "personality": "default",
+            "animaltype": "미확인"
+        }
+
     # ✅ 채팅방이 없을 경우에만 생성
     if not chat_doc.exists:
         chat_data = {
             "chat_id": chat_id,
             "user_id": user_id,
-            "nickname": character_data["nickname"],
-            "personality": character_data["personality"],
-            "animaltype": character_data["animaltype"],
+            "nickname": character_data.get("nickname", "이름 없음"),
+            "personality": character_data.get("personality", "default"),
+            "animaltype": character_data.get("animaltype", "미확인"),
             "create_at": firestore.SERVER_TIMESTAMP,
             "last_active_at": firestore.SERVER_TIMESTAMP,
             "last_message": None
         }
+
+        # print(f"🔥 Firestore 저장 직전 데이터: {chat_data}")
+
         chat_ref.set(chat_data)
+
+        # ✅ 저장 후 Firestore에서 다시 확인
+        chat_doc = chat_ref.get()
+        chat_data_saved = chat_doc.to_dict()
+        # print(f"✅ Firestore 저장 확인: {chat_data_saved}")
+
+    # ✅ 채팅방이 없을 경우에만 생성
+    if not chat_doc.exists:
+        chat_data = {
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "nickname": character_data.get("nickname", "이름 없음"),
+            "personality": character_data.get("personality", "default"),
+            "animaltype": character_data.get("animaltype", "미확인"),
+            "create_at": firestore.SERVER_TIMESTAMP,
+            "last_active_at": firestore.SERVER_TIMESTAMP,
+            "last_message": None
+        }
+
+        # 🚨 Firestore 저장 전 로그 확인
+        # print(f"🔥 Firestore 저장 직전 데이터: {chat_data}")
+
+        chat_ref.set(chat_data)
+
+
 
 def get_character_data(user_id: str, charac_id: str):
     """Firestore에서 캐릭터 데이터 가져오기 (characters 컬렉션 사용)"""
@@ -53,29 +90,31 @@ def get_character_data(user_id: str, charac_id: str):
     character_doc = character_ref.get()
 
     if character_doc is None or not character_doc.exists:
-        print(f"❌ Firestore: 캐릭터 정보 없음 → user_id: {user_id}, charac_id: {charac_id}")
-        return None
+        print(f"❌ Firestore: 캐릭터 정보 없음 → 기본값 사용 (user_id: {user_id}, charac_id: {charac_id})")
+        return {
+            "nickname": "이름 없음",
+            "personality": "default",
+            "animaltype": "미확인",
+            "speech_pattern": "",
+            "speech_style": ""
+        }
 
     character_data = character_doc.to_dict()
 
-    # ✅ animaltype 필드가 없을 경우 기본값 "미확인" 설정
+    # ✅ animaltype 필드 기본값 설정
     animaltype = character_data.get("animaltype", "미확인")
 
-    # ✅ personality_id 확인
-    personality_id = character_data.get("personality")
-    if not personality_id:
-        print(f"❌ Firestore: personality ID 없음 → user_id: {user_id}, charac_id: {charac_id}")
-        return None
-
-    print(f"✅ Firestore: personality_id={personality_id}, animaltype={animaltype}")  # 디버깅 출력
+    # ✅ personality_id 확인 (없으면 기본값 사용)
+    personality_id = character_data.get("personality", "default")
 
     return {
-        "nickname": character_data.get("nickname"),
+        "nickname": character_data.get("nickname", "이름 없음"),
         "personality": personality_id,
-        "animaltype": animaltype,  # ✅ 수정: 기본값 설정
-        "speech_pattern": "",
-        "speech_style": ""
+        "animaltype": animaltype,
+        "speech_pattern": character_data.get("speech_pattern", ""),
+        "speech_style": character_data.get("speech_style", "")
     }
+
 
 
 def get_personality_data(personality_id: str):
@@ -159,10 +198,10 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     similar_messages = search_similar_messages(chat_id, user_input, top_k=3)
 
     # ✅ 디버깅용 출력
-    print(f"🔍 검색어: {user_input}")
-    print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
-    for msg in similar_messages:
-        print(f"✅ {msg}")
+    # print(f"🔍 검색어: {user_input}")
+    # print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
+    # for msg in similar_messages:
+    #     print(f"✅ {msg}")
 
     retrieved_context = "\n".join(similar_messages)
     
