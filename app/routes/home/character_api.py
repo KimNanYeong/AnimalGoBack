@@ -53,11 +53,11 @@ async def update_character_nickname(
 # ==========================  ------------- 삭제 예정
 # 🔹 변환된 이미지 업로드 및 기존 `characterId` 문서 업데이트 (`user_id` 기반 최적화된 폴더 구조) ------------- 삭제 예정
 # ==========================  ------------- 삭제 예정
-@router.post(
-    "/upload-character-image",
-    summary="변환된 캐릭터 이미지 업로드 (삭제 예정 - ComyUI 변환중 처리)",
-    description="변환된 캐릭터 이미지를 업로드하고 Firestore `characters` 문서에서 `character_path` 필드를 업데이트하는 API"
-)
+# @router.post(
+#     "/upload-character-image",
+#     summary="변환된 캐릭터 이미지 업로드 (삭제 예정 - ComyUI 변환중 처리)",
+#     description="변환된 캐릭터 이미지를 업로드하고 Firestore `characters` 문서에서 `character_path` 필드를 업데이트하는 API"
+# )
 async def upload_character_image(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
     file: UploadFile = File(..., description="업로드할 변환된 캐릭터 이미지 (Transformed character image file)")
@@ -76,7 +76,7 @@ async def upload_character_image(
 
         # 🔹 Firestore 문서에서 `user_id` 가져오기
         character_data = character_doc.to_dict()
-        user_id = character_data.get("userId")
+        user_id = character_data.get("user_id")
         if not user_id:
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
@@ -91,7 +91,7 @@ async def upload_character_image(
 
         # 🔹 파일 저장
         with open(character_path, "wb") as buffer:
-            buffer.write(await file.read())
+            buffer.write(file.read())
 
         # 🔹 Firestore 문서 업데이트 (`character_path` 필드 변경)
         character_ref.update({
