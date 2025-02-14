@@ -10,7 +10,7 @@ def create_character(user_id: str, charac_id: str, nickname: str, animaltype: st
     """🔥 Firestore에 캐릭터 정보를 저장하고 자동으로 채팅방을 생성하는 함수"""
 
     # ✅ Firestore에서 성격 정보 가져오기
-    personality_ref = db.collection("personality").document(personality)
+    personality_ref = db.collection("personality_traits").document(personality)
     personality_doc = personality_ref.get()
 
     if personality_doc is None or not personality_doc.exists:

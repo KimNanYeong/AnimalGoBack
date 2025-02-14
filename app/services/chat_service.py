@@ -79,7 +79,7 @@ def get_character_data(user_id: str, charac_id: str):
 
 def get_personality_data(personality_id: str):
     """성격 데이터를 가져오는 함수"""
-    personality_ref = db.collection("personality").document(personality_id)
+    personality_ref = db.collection("personality_traits").document(personality_id)
     personality_doc = personality_ref.get()
 
     # ✅ Firestore 문서가 있는지 확인할 때 None 체크 추가
