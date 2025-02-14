@@ -30,7 +30,7 @@ def update_character_traits():
     }
 
     # Firestore 업데이트 (기존 데이터 유지하면서 추가)
-    traits_ref = db.collection("personality")
+    traits_ref = db.collection("personality_traits")
     for trait_id, trait_data in traits_data.items():
         traits_ref.document(trait_id).set(trait_data, merge=True)  # ✅ 기존 데이터 유지 + 새로운 데이터 추가
 
