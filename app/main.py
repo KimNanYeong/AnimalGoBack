@@ -66,6 +66,7 @@ app.include_router(character_router, prefix="/home")
 app.include_router(register_router, prefix="/home")
 
 app.include_router(show_image_router, prefix="/image")
+app.include_router(create_router, prefix="/create")
 
 # ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":

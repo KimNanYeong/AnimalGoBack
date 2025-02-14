@@ -18,3 +18,5 @@ from .home.character_api import router as character_router
 from .home.register import router as register_router
 
 from .image.ShowImageRoutes import router as show_image_router
+
+from .create.CreateRouter import router as create_router
