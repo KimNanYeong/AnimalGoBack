@@ -28,7 +28,7 @@ async def remove_character(user_id: str, charac_id: str):
     # ✅ 조건문 수정 (정확한 문구 확인)
     if "message" in delete_result and "deleted successfully" in delete_result["message"]:
         chat_id = f"{user_id}_{charac_id}"
-        print(f"🟢 FAISS 삭제 실행: {chat_id}")
+        # print(f"🟢 FAISS 삭제 실행: {chat_id}")
         delete_faiss_index(chat_id)  # 🔥 FAISS 벡터 삭제 추가
 
     return delete_result
