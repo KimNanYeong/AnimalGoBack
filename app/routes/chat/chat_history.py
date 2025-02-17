@@ -60,15 +60,3 @@ async def get_chat_history(chat_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/chat/history/{chat_id}/store",
-             tags=["chat"], 
-             summary="채팅 기록을 벡터 DB에 저장", 
-             description="특정 채팅방의 대화를 FAISS 벡터 DB에 저장합니다.")
-async def store_chat_in_vector_db(chat_id: str):
-    """Firestore의 특정 채팅방 대화를 FAISS 벡터 DB에 저장"""
-    try:
-        store_chat_in_faiss(chat_id)
-        return {"message": f"Chat history for {chat_id} stored in FAISS"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

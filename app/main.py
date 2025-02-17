@@ -11,7 +11,7 @@ from firebase_admin import credentials, firestore
 from core import db
 
 # ✅ FAISS 벡터 DB 관련 모듈 추가!
-from db.faiss_db import ensure_faiss_directory
+from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
 
 # ✅ 라우트 (API 엔드포인트) 불러오기
 # from app.routes.chat.chat import router as chat_router
@@ -52,6 +52,9 @@ app.add_middleware(
 
 # ✅ 서버 시작 시 FAISS 저장 디렉토리 자동 생성!
 ensure_faiss_directory()
+
+# ✅ 서버 시작 시 기존 FAISS 인덱스 자동 로드!
+load_existing_faiss_indices()
 
 #User Router
 app.include_router(user_router)
