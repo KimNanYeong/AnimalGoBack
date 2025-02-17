@@ -15,13 +15,6 @@ async def chat_with_ai(
     user_id: str = Query(..., description="User ID"),
     charac_id: str = Query(..., description="Character ID")
 ):
-    """
-    ✅ 사용자 메시지를 저장하고 AI 응답을 생성하는 API
-    - Firestore `chats/{chat_id}/messages`에 사용자 메시지 저장
-    - AI 응답을 생성한 후 Firestore에 저장
-    - Firestore `chats/{chat_id}` 문서의 `last_message` 필드 업데이트
-    - ✅ Firestore 저장 후 FAISS 벡터 DB에도 자동 반영 (채팅방별 저장)
-    """
 
     if not user_input.strip():
         raise HTTPException(status_code=400, detail="Empty message not allowed")
@@ -36,49 +29,25 @@ async def chat_with_ai(
     # ✅ 채팅방이 존재하지 않으면 자동 생성
     initialize_chat(user_id, charac_id, character_data)  # 🔥 여기에 추가
 
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-
-    # ✅ Firestore 배치 저장 (성능 최적화)
-    batch = db.batch()
-    
-    user_message = {
-        "content": user_input,
-        "sender": user_id,
-        "timestamp": firestore.SERVER_TIMESTAMP
-    }
-    user_message_ref = messages_ref.document()
-    batch.set(user_message_ref, user_message)
-
     # ✅ AI 응답 생성
     ai_response, error = generate_ai_response(user_id, charac_id, user_input)
     if error:
         raise HTTPException(status_code=500, detail=error)
 
-    ai_message = {
-        "content": ai_response,
-        "sender": charac_id,
-        "timestamp": firestore.SERVER_TIMESTAMP
-    }
-    ai_message_ref = messages_ref.document()
-    batch.set(ai_message_ref, ai_message)
-
-    # ✅ Firestore `chats/{chat_id}` 문서의 `last_message` 업데이트
+    # ✅ Firestore `chats/{chat_id}` 문서의 `last_message` 업데이트 (대화 유지용)
     chat_ref = db.collection("chats").document(chat_id)
-    batch.set(
-        chat_ref,
-        {
-            "last_message": ai_message,
-            "last_active_at": firestore.SERVER_TIMESTAMP
-        },
-        merge=True,
-    )
-
     try:
-        batch.commit()  # ✅ Firestore에 한 번에 저장
+        chat_ref.set(
+            {
+                "last_message": {"content": ai_response, "sender": charac_id},
+                "last_active_at": firestore.SERVER_TIMESTAMP
+            },
+            merge=True,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail="Firestore 저장 중 오류 발생")
 
     # ✅ Firestore 저장 후 해당 채팅방의 FAISS 벡터 DB에 저장
-    store_chat_in_faiss(chat_id)  # 🔥 채팅방별 벡터 DB 저장
+    store_chat_in_faiss(chat_id, charac_id)  # 🔥 채팅방별 벡터 DB 저장
 
     return {"response": ai_response}

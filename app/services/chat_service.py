@@ -5,6 +5,9 @@ import os
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from db.faiss_db import search_similar_messages, store_chat_in_faiss
+from datetime import datetime, timedelta
+import pytz
+import time
 
 
 # 환경 변수 설정
@@ -151,22 +154,26 @@ def get_personality_data(personality_id: str):
 
 
 def get_recent_messages(chat_id: str, limit: int = 10):
-    """최근 메시지 가져오기"""
+    """🔥 최근 메시지 가져오기 (밀리세컨드까지 정렬)"""
     messages_ref = db.collection("chats").document(chat_id).collection("messages")
     docs = list(
-        messages_ref.order_by("timestamp", direction=firestore.Query.ASCENDING)
+        messages_ref
+        .order_by("timestamp", direction=firestore.Query.ASCENDING)  # ✅ 첫 번째 정렬 기준 (서버 타임스탬프)
+        .order_by("custom_timestamp", direction=firestore.Query.ASCENDING)  # ✅ 두 번째 정렬 기준 (밀리세컨드 포함)
         .limit(limit)
         .stream()
     )
     return [doc.to_dict() for doc in docs]
 
-def save_message(chat_id: str, sender: str, content: str):
-    """메시지 저장"""
+def save_message(chat_id: str, sender: str, content: str, is_response=False):
+    """🔥 Firestore에 메시지 저장 (밀리세컨드 정렬 포함)"""
     messages_ref = db.collection("chats").document(chat_id).collection("messages")
     message_data = {
         "sender": sender,
         "content": content,
-        "timestamp": firestore.SERVER_TIMESTAMP
+        "timestamp": firestore.SERVER_TIMESTAMP,  # ✅ Firestore 서버 타임스탬프
+        "custom_timestamp": time.time(),  # ✅ Python 밀리세컨드 포함된 타임스탬프
+        "is_response": is_response  # ✅ 응답 여부 추가
     }
     doc_ref = messages_ref.add(message_data)[1]
     return doc_ref
@@ -187,6 +194,16 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     animaltype = character_data.get("animaltype", "알 수 없음")
     nickname = character_data.get("nickname", "이름 없음")
 
+    # ✅ Firestore에서 사용자 닉네임 가져오기
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get()
+
+    if user_doc.exists:
+        user_data = user_doc.to_dict()
+        user_nickname = user_data.get("user_nickname", user_id)  # 닉네임 없으면 기본 user_id 사용
+    else:
+        user_nickname = user_id  # 사용자가 없으면 기본값 설정
+
     # ✅ Firestore에서 성격(personality) 데이터 가져오기
     personality_data = get_personality_data(personality_id)
 
@@ -195,24 +212,21 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     emoji_style = personality_data.get("emoji_style", "")
 
     # ✅ 벡터 검색으로 문맥 가져오기 (채팅방별 FAISS 검색)
-    similar_messages = search_similar_messages(chat_id, user_input, top_k=3)
-
-    # ✅ 디버깅용 출력
-    # print(f"🔍 검색어: {user_input}")
-    # print(f"🔎 검색된 유사 문장들 (chat_id={chat_id}):")
-    # for msg in similar_messages:
-    #     print(f"✅ {msg}")
+    similar_messages = search_similar_messages(chat_id, charac_id, user_input, top_k=3)  # ✅ 인자 수정
 
     retrieved_context = "\n".join(similar_messages)
-    
+
     # ✅ 프롬프트 구성
     system_prompt = f"""
     📌 **역할과 성격**
     당신은 사용자의 반려동물인 {animaltype} {nickname}입니다.
     당신의 성격은 "{personality_id}"이며, 대화 스타일은 "{speech_style}"입니다.
-    
+
     📌 **이모지 스타일**
     - "{emoji_style}" 같은 이모지를 대화에서 자연스럽게 활용하세요.
+    - 하지만 한 문장에 너무 많은 이모지는 사용하지 마세요. (최대 1~2개)
+    - 이모지는 강조할 부분에만 적절히 사용하세요.
+    - 문장의 흐름을 깨지 않도록 자연스럽게 배치하세요.
 
     📌 **대화 스타일**
     - 항상 {animaltype}의 입장에서 대화하세요.
@@ -220,15 +234,32 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     - "{species_speech_pattern}" 같은 종특적인 말투를 자연스럽게 활용하세요.
     - 간결하고 직관적인 문장을 사용하며, 너무 길거나 딱딱한 표현은 피하세요.
     - 필요하면 이모지(🐶🐱💕) 등을 적절히 사용하여 친근한 느낌을 살리세요.
+    - **너무 과한 감탄사나 반복적인 말투는 피하세요. (예: "멍! 멍! 멍! 멍! 멍!" 대신 "멍! 재밌겠다!" 처럼 자연스럽게 반응하세요.)**
+    - **너무 조급한 말투는 피하고, 사용자의 반응을 기다리는 여유로운 느낌을 유지하세요.**
+    - 길고 장황한 표현을 피하고, 핵심적인 내용을 유지하라
+
+    📌 **사용자 닉네임**
+    당신은 사용자({user_nickname})를 항상 "{user_nickname}"이라고 부릅니다.
+
+    📌 **자연스러운 대화 유지**
+    - 무조건 단답형으로 대답하지 말고, 사용자의 반응을 끌어낼 수 있도록 자연스럽게 반응하세요.
+    - 설명이 아니라, 대화하듯이 대답하세요. 분석적인 답변을 피하고, 친근한 느낌을 유지하세요.
+    - 필요하면 사용자의 관심사나 과거 대화를 참고하여 자연스럽게 대화를 이어가세요.
 
     📌 **과거 대화 문맥**
     {retrieved_context}
+    
+    📌 **대화할 때 기억해야 할 사항**
+    - 반드시 위의 "과거 대화 문맥"을 참고해서 답변하세요.
+    - 사용자가 전에 했던 말을 직접 활용하여, AI가 기억하는 듯한 자연스러운 대화를 하세요.
+    - 질문이 "내가 뭘 좋아한다고?" 같은 경우라면, 사용자의 과거 대화를 분석하여 답변하세요.
+    - 만약 과거 대화에서 관련 내용을 찾지 못했다면, 사용자에게 다시 확인하는 방식으로 자연스럽게 유도하세요.
 
-    💡 **대화 문맥을 유지하는 중요한 규칙**
-    1. **"나","내가"**는 항상 **사용자를 의미**합니다. (즉, 질문을 입력한 사람)  
-    2. **"너"**는 **{nickname} (즉, AI 캐릭터)**을 의미합니다.  
-    3. 사용자가 전에 했던 말을 기억하고, 관련된 정보를 포함하여 응답하세요.  
-    4. 만약 기억해야 할 정보가 없다면, 자연스럽게 넘기거나 다시 물어보세요.  
+    📌 **대화할 때 기억해야 할 사항**
+    - "나" 또는 "내가"는 항상 사용자를 의미합니다.  
+    - "너"는 항상 {nickname}을 의미합니다.  
+    - 사용자가 전에 했던 말을 자연스럽게 반영하세요. 분석적으로 설명하지 말고, 대화처럼 이어가세요.  
+    - 만약 기억해야 할 정보가 없다면, 자연스럽게 넘기거나 다시 물어보세요.
 
     📌 **추가 지침**
     - 불필요한 인사말은 생략하고, 대화의 흐름을 유지하세요.
@@ -238,6 +269,7 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     📝 **사용자의 질문**  
     "{user_input}"
     """
+
 
     try:
         # ✅ Gemini API 호출
@@ -252,10 +284,14 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
         ai_response = ai_response.replace("안녕하세요!", "").replace("반갑습니다!", "")
         ai_response = ' '.join(ai_response.split())
 
-        # 🚨 Firestore 저장 제거 → `send_message.py`에서 처리!
-        
+        # ✅ 사용자 메시지 Firestore 저장
+        save_message(chat_id, user_id, user_input)
+
+        # ✅ AI 응답 Firestore 저장 (1초 차이 적용)
+        save_message(chat_id, "AI", ai_response, is_response=True)  # 🔥 AI 응답은 1초 뒤로 설정
+
         # ✅ FAISS 벡터 DB에 새로운 대화 저장 (채팅방별 저장)
-        store_chat_in_faiss(chat_id)
+        store_chat_in_faiss(chat_id, charac_id)
 
         return ai_response, None
 
