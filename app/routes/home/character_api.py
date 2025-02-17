@@ -33,8 +33,9 @@ class AnimalResponse(BaseModel):
 class AnimalsListResponse(BaseModel):
     animals: List[AnimalResponse]  # 🔹 리스트 응답 구조
 
-
+# ================================================================
 # 🔹 캐릭터 닉네임 추가/수정 API (/nickname) + 채팅방 자동 생성 추가
+# ================================================================
 @router.post(
     "/nickname",
     summary="캐릭터 닉네임 추가/수정 및 채팅방 자동 생성",  tags=["Basic"],
@@ -52,20 +53,27 @@ async def update_character_nickname(
         # 🔹 Firestore에서 기존 캐릭터 문서 확인
         character_ref = db.collection("characters").document(character_id)
         character_doc = character_ref.get()
-
+        
         if not character_doc.exists:
             raise HTTPException(status_code=404, detail="Character ID not found in Firestore")
-
+        
         # 🔹 캐릭터 데이터 가져오기
         character_data = character_doc.to_dict()
         user_id = character_data.get("user_id")
+        status = character_data.get("status", "unknown")  # 기본값 "unknown" 설정
+        character_path = character_data.get("character_path", "").strip()  # 기본값 빈 문자열 설정
+
         if not user_id:
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
+
+        # ✅ 캐릭터 `status`가 `pending`이거나 `character_path`가 없으면 닉네임 등록 불가
+        if status == "pending" or not character_path:
+            raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
 
         # 🔹 캐릭터 닉네임 업데이트
         character_ref.update({
             "nickname": nickname,  # 🔹 닉네임 업데이트
-            "updatedAt": firestore.SERVER_TIMESTAMP,  # 🔹 업데이트된 시간 기록
+            "nickname_create_at": firestore.SERVER_TIMESTAMP,  # 🔹 업데이트된 시간 기록
         })
 
         # 🔹 채팅방 문서 참조 생성
@@ -80,7 +88,7 @@ async def update_character_nickname(
                 "nickname": nickname,
                 "personality": character_data.get("personality", "unknown"),
                 "animaltype": character_data.get("animaltype", "unknown"),
-                "created_at": firestore.SERVER_TIMESTAMP,
+                "create_at": firestore.SERVER_TIMESTAMP,
                 "last_active_at": firestore.SERVER_TIMESTAMP,
                 "last_message": None
             }
@@ -94,7 +102,7 @@ async def update_character_nickname(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 # ✅ Form 데이터 기반 캐릭터 목록 조회 API (completed 상태만 필터링, personality & animaltype 제외)
 @router.post(
@@ -164,6 +172,8 @@ async def upload_character_image(
         # 🔹 Firestore에서 기존 characterId 문서 확인
         character_ref = db.collection("characters").document(character_id)
         character_doc = character_ref.get()
+
+        print ("character_doc ====", character_doc)
 
         if not character_doc.exists:
             raise HTTPException(status_code=404, detail="Character ID not found in Firestore")

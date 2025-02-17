@@ -54,7 +54,7 @@ def register_user(
         user_ref.set({
             "user_nickname": user_nickname,
             "hashed_password": hashed_pw,
-            "createdAt": firestore.SERVER_TIMESTAMP
+            "create_at": firestore.SERVER_TIMESTAMP
         })
 
         return {"userId": user_id, "message": f"User {user_nickname} registered successfully!"}

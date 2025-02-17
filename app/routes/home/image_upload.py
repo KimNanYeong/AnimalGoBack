@@ -64,14 +64,22 @@ async def upload_original_image(
         user_ref = db.collection("users").document(user_id)
         if not user_ref.get().exists:
             raise HTTPException(status_code=400, detail="User not found in Firestore")
+        
+        appearance_id = get_document_id_by_field("appearance_traits", "korean", appearance)
+        personality_id = get_document_id_by_field("personality_traits", "name", personality)
+        animals_id = get_document_id_by_field("animals", "korean", animaltype)
+        #print ("===== eng animaltype === ", animals_id)
 
-        # 🔹 해당 `user_id`와 `animaltype`을 가진 캐릭터 개수 조회
+        # 🔹 해당 `user_id`와 `animaltype (입력 한글) > animals_id (영문)`을 가진 캐릭터id  보유 개수 조회
         characters_ref = db.collection("characters")
-        existing_characters = characters_ref.where("user_id", "==", user_id).where("animaltype", "==", animaltype).stream()
+        existing_characters = characters_ref.where("user_id", "==", user_id).where("animaltype", "==", animals_id).stream()
+        
         character_count = sum(1 for _ in existing_characters) + 1  # 기존 개수 + 1
 
         # 🔹 `{user_id}-{animaltype}{번호}` 형식의 문서명 생성
-        character_id = f"{user_id}-{animaltype}{character_count:03d}"  # 001, 002, 003 ...
+        character_id = f"{user_id}-{animals_id}{character_count:03d}"  # 001, 002, 003 ...
+        
+        #print ("===== character_id === ", character_id)
 
         # 🔹 사용자별 저장 폴더 경로 생성
         user_folder = os.path.join(BASE_STORAGE_FOLDER, user_id, "originals")
@@ -82,10 +90,7 @@ async def upload_original_image(
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         original_path = os.path.join(user_folder, unique_filename)
 
-        appearance_id = get_document_id_by_field("appearance_traits", "korean", appearance)
-        personality_id = get_document_id_by_field("personality_traits", "name", personality)
-        animals_id = get_document_id_by_field("animals", "korean", animaltype)
-
+ 
         # 🔹 파일 저장
         with open(original_path, "wb") as buffer:
             buffer.write(await file.read())
@@ -98,9 +103,10 @@ async def upload_original_image(
             "appearance": appearance_id,
             "personality": personality_id,
             "animaltype": animals_id,
-            "uploadedAt": firestore.SERVER_TIMESTAMP,
+            "create_at": firestore.SERVER_TIMESTAMP,  # 🔹 생성 시각 추가
             "status": "pending"
         })
+
 
         return {
             "characterId": character_id,  # 🔹 `{user_id}-{animaltype}{번호}` 반환
