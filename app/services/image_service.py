@@ -62,9 +62,6 @@ async def json_update(animal_type: str, appearance: str, image_path: str):
         print(f"[update_workflow_json] Updated node 6 text -> {new_text}")
     else:
         raise KeyError("JSON 데이터에 6번 노드가 없거나 inputs 필드가 없습니다.")
-    
-    def generate_random_seed():
-        return random.randint(0, 2**63 - 1)  # 64비트 정수 범위 내 랜덤 값 생성
 
     # 16번 노드의 seed 값을 업데이트
     new_seed = generate_random_seed()  # 새로운 랜덤 seed 생성
