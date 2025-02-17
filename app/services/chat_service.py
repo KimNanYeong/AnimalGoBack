@@ -22,12 +22,12 @@ GEMINI_MODEL = "gemini-2.0-flash-thinking-exp-01-21"
 def initialize_chat(user_id: str, charac_id: str, character_data: dict):
     """🔥 채팅방이 존재하지 않으면 Firestore에 자동 생성"""
 
-    chat_id = f"{user_id}_{charac_id}"
+    chat_id = f"{user_id}-{charac_id}"
     chat_ref = db.collection("chats").document(chat_id)
     chat_doc = chat_ref.get()
 
     # ✅ 채팅방이 존재하지 않고, 캐릭터가 삭제된 상태면 생성 안 함
-    character_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
+    character_ref = db.collection("characters").document(f"{user_id}-{charac_id}")
     if not character_ref.get().exists:
         print(f"🚨 Character {charac_id} not found. Skipping chat creation.")
         return
@@ -86,7 +86,7 @@ def initialize_chat(user_id: str, charac_id: str, character_data: dict):
 def get_character_data(user_id: str, charac_id: str):
     """Firestore에서 캐릭터 데이터 가져오기 (characters 컬렉션 사용)"""
     
-    character_ref = db.collection("characters").document(f"{user_id}_{charac_id}")
+    character_ref = db.collection("characters").document(f"{user_id}-{charac_id}")
     character_doc = character_ref.get()
 
     if character_doc is None or not character_doc.exists:
@@ -173,7 +173,7 @@ def save_message(chat_id: str, sender: str, content: str):
 
 def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     """🔥 RAG 기반 AI 응답 생성 (FAISS 벡터 검색 적용)"""
-    chat_id = f"{user_id}_{charac_id}"  # ✅ 채팅방 ID
+    chat_id = f"{user_id}-{charac_id}"  # ✅ 채팅방 ID
 
     # ✅ Firestore에서 캐릭터 데이터 가져오기
     character_ref = db.collection("characters").document(chat_id)
