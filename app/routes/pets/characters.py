@@ -21,7 +21,8 @@ router = APIRouter()
     
 #     return character_data
 
-@router.delete("/characters/{user_id}/{charac_id}", 
+@router.delete("/characters/{user_id}/{charac_id}",
+               tags=["chat"], 
                summary="사용자의 캐릭터 삭제", 
                description="특정 사용자의 캐릭터를 삭제합니다.")
 async def remove_character(user_id: str, charac_id: str):

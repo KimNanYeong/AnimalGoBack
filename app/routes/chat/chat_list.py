@@ -7,7 +7,8 @@ router = APIRouter()
 # ✅ Firestore 클라이언트 연결
 db = firestore.client()
 
-@router.get("/chat/list/{user_id}", 
+@router.get("/chat/list/{user_id}",
+            tags=["chat"], 
             summary="사용자의 채팅방 목록 조회", 
             description="특정 사용자의 모든 채팅방 리스트를 반환합니다.")
 async def get_chat_list(user_id: str):

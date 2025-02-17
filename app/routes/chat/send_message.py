@@ -6,7 +6,8 @@ from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
 router = APIRouter()
 db = firestore.client()
 
-@router.post("/send_message", 
+@router.post("/send_message",
+             tags=["chat"], 
              summary="AI와 메시지 주고받기", 
              description="AI와 채팅 메시지를 주고받습니다.")
 async def chat_with_ai(
