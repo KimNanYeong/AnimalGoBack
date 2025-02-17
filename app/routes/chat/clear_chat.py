@@ -9,7 +9,10 @@ db = firestore.client()
 # ✅ FastAPI 라우터 설정
 router = APIRouter()
 
-@router.delete("/delete_chat/{chat_id}")
+@router.delete("/delete_chat/{chat_id}",
+               tags=["chat"], 
+               summary="채팅방 삭제", 
+               description="특정 채팅방을 삭제합니다.")
 async def delete_chat(chat_id: str):
     """
     🔥 채팅방 삭제 API

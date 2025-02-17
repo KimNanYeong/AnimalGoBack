@@ -5,7 +5,6 @@ from .chat.chat_list import router as chat_list_router
 from .chat.clear_chat import router as clear_chat_router
 
 # Pets Router 설정
-from .pets.traits_api import router as traits_router
 from .pets.characters import router as characters_router
 
 # User Router 설정
@@ -20,3 +19,4 @@ from .home.register import router as register_router
 from .image.ShowImageRoutes import router as show_image_router
 
 from .create.CreateRouter import router as create_router
+from .home.login import router as login_router

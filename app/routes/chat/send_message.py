@@ -6,7 +6,10 @@ from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
 router = APIRouter()
 db = firestore.client()
 
-@router.post("/send_message")
+@router.post("/send_message",
+             tags=["chat"], 
+             summary="AI와 메시지 주고받기", 
+             description="AI와 채팅 메시지를 주고받습니다.")
 async def chat_with_ai(
     user_input: str = Query(..., description="User input"),
     user_id: str = Query(..., description="User ID"),
@@ -23,7 +26,7 @@ async def chat_with_ai(
     if not user_input.strip():
         raise HTTPException(status_code=400, detail="Empty message not allowed")
 
-    chat_id = f"{user_id}_{charac_id}"
+    chat_id = f"{user_id}-{charac_id}"
 
     # ✅ 캐릭터 데이터 가져오기
     character_data = get_character_data(user_id, charac_id)

@@ -9,7 +9,10 @@ db = firestore.client()
 # ✅ FastAPI 라우터 설정
 router = APIRouter()
 
-@router.get("/chat/history/{chat_id}")
+@router.get("/chat/history/{chat_id}",
+            tags=["chat"], 
+            summary="채팅 메시지 기록 조회", 
+            description="특정 채팅방의 채팅 메시지 리스트를 반환합니다.")
 async def get_chat_history(chat_id: str):
     """
     ✅ 특정 채팅방의 채팅 메시지 리스트를 반환하는 API
@@ -58,7 +61,10 @@ async def get_chat_history(chat_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/chat/history/{chat_id}/store")
+@router.post("/chat/history/{chat_id}/store",
+             tags=["chat"], 
+             summary="채팅 기록을 벡터 DB에 저장", 
+             description="특정 채팅방의 대화를 FAISS 벡터 DB에 저장합니다.")
 async def store_chat_in_vector_db(chat_id: str):
     """Firestore의 특정 채팅방 대화를 FAISS 벡터 DB에 저장"""
     try:
