@@ -67,8 +67,8 @@ async def update_character_nickname(
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
         # ✅ 캐릭터 `status`가 `pending`이거나 `character_path`가 없으면 닉네임 등록 불가
-        if status == "pending" or not character_path:
-            raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
+        # if status == "pending" or not character_path:
+        #     raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
 
         # 🔹 캐릭터 닉네임 업데이트
         character_ref.update({

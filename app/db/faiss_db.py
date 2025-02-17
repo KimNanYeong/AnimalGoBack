@@ -43,7 +43,7 @@ def load_faiss_index(chat_id):
 
     if os.path.exists(index_path):
         index = faiss.read_index(index_path)
-        print(f"✅ FAISS 인덱스 로드 완료! ({chat_id}) 저장된 개수: {index.ntotal}")
+        # print(f"✅ FAISS 인덱스 로드 완료! ({chat_id}) 저장된 개수: {index.ntotal}")
 
         # ✅ doc_store 동기화
         if chat_id not in doc_store:
@@ -115,7 +115,7 @@ def store_chat_in_faiss(chat_id, charac_id):
             if match:
                 value = match.group(1).strip()
                 user_profiles[chat_id][key] = value
-                print(f"✅ 사용자 정보 저장: {key} = {value}")
+                # print(f"✅ 사용자 정보 저장: {key} = {value}")
 
         # ✅ AI 캐릭터 정보 저장
         charac_patterns = {
@@ -126,7 +126,7 @@ def store_chat_in_faiss(chat_id, charac_id):
             if match:
                 value = match.group(2).strip()
                 character_profiles[charac_id][key] = value
-                print(f"✅ 캐릭터 정보 저장: {key} = {value}")
+                # print(f"✅ 캐릭터 정보 저장: {key} = {value}")
 
         # ✅ FAISS에 저장할 문장 벡터화
         if text not in texts:  # ✅ 중복 방지
@@ -144,7 +144,7 @@ def store_chat_in_faiss(chat_id, charac_id):
 
     # ✅ FAISS 인덱스 저장
     save_faiss_index(chat_id, index)
-    print(f"✅ FAISS 저장 완료! (chat_id={chat_id}) 저장된 문장 개수: {index.ntotal}")
+    # print(f"✅ FAISS 저장 완료! (chat_id={chat_id}) 저장된 문장 개수: {index.ntotal}")
 
 def search_similar_messages(chat_id, charac_id, query, top_k=5):
     """사용자 및 AI 정보 기반 검색 (자연스러운 대화 스타일 적용)"""
