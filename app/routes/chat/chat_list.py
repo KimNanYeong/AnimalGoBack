@@ -7,7 +7,9 @@ router = APIRouter()
 # ✅ Firestore 클라이언트 연결
 db = firestore.client()
 
-@router.get("/chat/list/{user_id}")
+@router.get("/chat/list/{user_id}", 
+            summary="사용자의 채팅방 목록 조회", 
+            description="특정 사용자의 모든 채팅방 리스트를 반환합니다.")
 async def get_chat_list(user_id: str):
     """
     ✅ 특정 사용자의 모든 채팅방 리스트를 반환하는 API
@@ -18,8 +20,8 @@ async def get_chat_list(user_id: str):
     try:
         # ✅ Firestore에서 채팅방을 `last_active_at` 기준으로 정렬하여 가져오기
         chats_ref = db.collection("chats") \
-            .where("chat_id", ">=", f"{user_id}_") \
-            .where("chat_id", "<", f"{user_id}_\uf8ff") \
+            .where("chat_id", ">=", f"{user_id}-") \
+            .where("chat_id", "<", f"{user_id}-\uf8ff") \
             .order_by("last_active_at", direction=firestore.Query.DESCENDING) \
             .stream()
 

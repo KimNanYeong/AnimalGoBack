@@ -23,7 +23,7 @@ from routes import chat_send_message_router, chat_history_router, chat_list_rout
 
 # from app.routes.pets.pets import router as pets_router
 # from app.routes.pets.pet_traits import router as traits_router
-from routes import traits_router, characters_router
+from routes import characters_router
 
 # from app.routes.users.user import router as user_router
 from routes import user_router
@@ -62,7 +62,6 @@ app.include_router(chat_history_router, prefix="/chat")
 app.include_router(chat_list_router, prefix="/chat")
 app.include_router(clear_chat_router, prefix="/chat")
 
-app.include_router(traits_router, prefix="/pets")
 app.include_router(characters_router, prefix="/pets")
 
 # app.include_router(user_router, prefix="/users")
