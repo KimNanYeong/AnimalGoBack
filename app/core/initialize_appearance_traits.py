@@ -1,13 +1,18 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# 🔹 Firebase 인증 정보 설정 (JSON 키 파일 필요)
-FIREBASE_CRED_PATH = "c:/data/fbkeys/fbkey.json"  # 🔹 Firebase 인증 키 파일 경로
-cred = credentials.Certificate(FIREBASE_CRED_PATH)
-firebase_admin.initialize_app(cred)
 
-# 🔹 Firestore 클라이언트 초기화
+# ✅ Firebase 인증 키 JSON 파일 경로 (본인의 Firebase 서비스 계정 키 파일 경로 설정)
+FIREBASE_CRED_PATH = "firebase_config.json"
+
+# ✅ Firebase 초기화 (이미 초기화된 경우 방지)
+if not firebase_admin._apps:
+    cred = credentials.Certificate(FIREBASE_CRED_PATH)
+    firebase_admin.initialize_app(cred)
+
+# ✅ Firestore 클라이언트 연결
 db = firestore.client()
+
 
 # 🔹 성격 데이터 (한글 & 영어)
 appearance_traits_data = {
