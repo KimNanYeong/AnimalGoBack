@@ -39,7 +39,7 @@ class ErrorResponse(BaseModel):
 @router.post(
     "/login",
     tags=["Auth"],
-    summary="사용자 로그인 (JWT 적용)",
+    summary="사용자 로그인",
     # description="""
     # 🔹 사용자 ID와 비밀번호를 입력하여 로그인하는 API.
 
