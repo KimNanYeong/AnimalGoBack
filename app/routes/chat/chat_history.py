@@ -2,12 +2,16 @@ from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
 from datetime import datetime, timezone, timedelta
 from db.faiss_db import store_chat_in_faiss
+import os
 
 # ✅ Firestore 클라이언트 연결
 db = firestore.client()
 
 # ✅ FastAPI 라우터 설정
 router = APIRouter()
+
+# ✅ 로깅 설정
+
 
 @router.get("/chat/history/{chat_id}",
             tags=["chat"], 
@@ -19,6 +23,7 @@ async def get_chat_history(chat_id: str):
     - Firestore `chats/{chat_id}/messages` 컬렉션에서 최근 메시지를 가져옴
     - 최대 50개 메시지를 `timestamp` 기준 최신순으로 정렬하여 반환
     """
+    
     try:
         chat_ref = db.collection("chats").document(chat_id)
         chat_doc = chat_ref.get()
@@ -56,7 +61,8 @@ async def get_chat_history(chat_id: str):
         # ✅ 최신 메시지가 마지막에 위치하도록 리스트 역순 정렬
         messages.reverse()
 
-        return {"chat_id": chat_id, "messages": messages}
+        response = {"chat_id": chat_id, "messages": messages}
+        return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

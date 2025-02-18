@@ -1,13 +1,42 @@
-import os
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query
 from services.chat_service import generate_ai_response, get_character_data, initialize_chat
 from firebase_admin import firestore
 from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
-
-# Suppress debug messages from python_multipart
+import json
 
 router = APIRouter()
 db = firestore.client()
+
+# WebSocket을 통해 연결된 클라이언트 관리
+test_active_connections = []
+
+@router.websocket("/chat/ws/{chat_id}")
+async def websocket_endpoint(websocket: WebSocket, chat_id: str):
+    await websocket.accept()
+    test_active_connections.append(websocket)
+    
+    try:
+        # ✅ 클라이언트가 처음 접속할 때 기존 메시지 가져오기
+        chat_ref = db.collection("chats").document(chat_id)
+        chat_data = chat_ref.get()
+        if (chat_data.exists):
+            messages = chat_data.to_dict().get("messages", [])
+            await websocket.send_text(json.dumps({"chat_id": chat_id, "messages": messages}))
+        
+        while True:
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            user_id = message_data.get("user_id")
+            message = message_data.get("message")
+
+            # Firestore에 메시지 저장
+            chat_ref.update({"messages": firestore.ArrayUnion([{ "user_id": user_id, "message": message }])})
+            
+            # 모든 클라이언트에게 메시지 전송
+            for conn in test_active_connections:
+                await conn.send_text(json.dumps({"chat_id": chat_id, "user_id": user_id, "message": message}))
+    except WebSocketDisconnect:
+        test_active_connections.remove(websocket)
 
 @router.post("/send_message",
              tags=["chat"], 
@@ -18,7 +47,6 @@ async def chat_with_ai(
     user_id: str = Query(..., description="User ID"),
     charac_id: str = Query(..., description="Character ID")
 ):
-    
 
     if not user_input.strip():
         raise HTTPException(status_code=400, detail="Empty message not allowed")
@@ -53,6 +81,10 @@ async def chat_with_ai(
 
     # ✅ Firestore 저장 후 해당 채팅방의 FAISS 벡터 DB에 저장
     store_chat_in_faiss(chat_id, charac_id)  # 🔥 채팅방별 벡터 DB 저장
+
+    # ✅ WebSocket을 통해 메시지 전송
+    for conn in test_active_connections:
+        await conn.send_text(json.dumps({"chat_id": chat_id, "user_id": user_id, "message": user_input}))
 
     response = {"response": ai_response}
     return response

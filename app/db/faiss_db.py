@@ -14,10 +14,11 @@ character_profiles = {}  # ✅ AI 캐릭터 정보 저장 {charac_id: {"취미":
 
 
 # ✅ 문장 임베딩 모델 로드
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+
 
 # ✅ FAISS 벡터 DB 초기화
-dimension = 384  # SBERT 출력 벡터 차원
+dimension = 768
 doc_store = {}  # ✅ 채팅방별로 문서를 저장 {chat_id: {문서 ID: 텍스트 저장}}
 FAISS_INDEX_DIR = "db/faiss"  # ✅ FAISS 저장 디렉토리
 
@@ -59,6 +60,7 @@ def load_faiss_index(chat_id):
         return index
     else:
         return faiss.IndexFlatL2(dimension)
+    
 def load_existing_faiss_indices():
     """서버 시작 시 저장된 모든 FAISS 인덱스를 불러옴"""
     if not os.path.exists(FAISS_INDEX_DIR):
@@ -146,39 +148,48 @@ def store_chat_in_faiss(chat_id, charac_id):
     save_faiss_index(chat_id, index)
     # print(f"✅ FAISS 저장 완료! (chat_id={chat_id}) 저장된 문장 개수: {index.ntotal}")
 
+def get_recent_messages(chat_id, limit=10):
+    """Firestore에서 최근 n개의 메시지를 가져오는 함수"""
+    messages_ref = db.collection(f"chats/{chat_id}/messages").order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
+    messages = messages_ref.stream()
+
+    recent_messages = []
+    for msg in messages:
+        msg_data = msg.to_dict()
+        recent_messages.append({"content": msg_data["content"], "timestamp": msg_data["timestamp"]})
+
+    return recent_messages
+
+def search_user_hobby(chat_id):
+    """사용자의 취미를 최근 대화에서 직접 검색"""
+    messages = get_recent_messages(chat_id, limit=10)  # 최근 10개 대화 가져오기
+    hobby_keywords = ["취미", "좋아하는", "내가 좋아하는", "나는", "내 취미는"]
+    
+    for msg in messages:
+        content = msg["content"]
+        for keyword in hobby_keywords:
+            if keyword in content:
+                return content.replace("내 취미는", "🐶 멍멍! 너의 취미는") + "야! 🚲"
+    
+    return None  # 취미 정보가 없으면 None 반환
+
 def search_similar_messages(chat_id, charac_id, query, top_k=5):
-    """사용자 및 AI 정보 기반 검색 (자연스러운 대화 스타일 적용)"""
+    """FAISS 검색을 수행하면서, '취미' 관련 질문일 경우 우선적으로 기억한 정보 반환"""
 
-    # ✅ "내가 누구였지?" 또는 "내 정보" 관련 질문
-    if "내가 누구였지" in query or "내 정보" in query:
-        if chat_id in user_profiles and user_profiles[chat_id]:
-            profile_info = ", ".join([f"{k}: {v}" for k, v in user_profiles[chat_id].items()])
-            responses = [
-                f"음... 내가 기억하기로는 {profile_info}라고 하셨던 것 같은데, 맞나요? 😊",
-                f"기억을 더듬어 보면... {profile_info}! 혹시 더 추가할 정보가 있으신가요? 🧐",
-                f"당신에 대해 곰곰이 생각해봤어요. {profile_info}라고 하셨었죠? 🐻"
-            ]
-            return [random.choice(responses)]
-        else:
-            return ["음... 아직 qqq님의 정보를 잘 모르겠어요! 알려주시면 다음부터 기억할게요! 😊"]
-
-    # ✅ "너는 누구야?" 또는 "너는 뭐 좋아해?" 관련 질문
-    if "너는 누구야" in query or "너는 뭐 좋아해" in query:
-        if charac_id in character_profiles and character_profiles[charac_id]:
-            charac_info = ", ".join([f"{k}: {v}" for k, v in character_profiles[charac_id].items()])
-            return [f"나는 {charac_info}를 좋아하는 AI야! 😊"]
-        else:
-            return ["음... 아직 제 정체성에 대한 정보가 부족하네요! 저에 대해 조금 더 알려주시면 기억해볼게요! 🤖"]
-
-    # ✅ "내가 뭘 좋아했지?" 패턴 검색
-    if "내가 뭘 좋아했지" in query or "내가 좋아하는 것" in query:
+    # ✅ 사용자의 취미 질문에 대한 즉시 응답
+    if "내가 뭘 좋아했지" in query or "내 취미가 뭐였지" in query or "내가 좋아하는 것" in query:
+        # 🔹 Firestore 또는 FAISS에서 취미 정보를 우선 검색
+        hobby_response = search_user_hobby(chat_id)
+        if hobby_response:
+            return [hobby_response]
+        
         if chat_id in user_profiles and "취미" in user_profiles[chat_id]:
             hobby = user_profiles[chat_id]["취미"]
-            return [f"qqq님은 {hobby}를 좋아하셨잖아요! 😊"]
-        else:
-            return ["음... 아직 qqq님의 취향을 모르겠어요! 좋아하는 걸 알려주시면 다음부터 꼭 기억할게요! 😊"]
+            return [f"🐶 멍멍! {hobby}가 너의 취미였지! 기억하고 있어! 🚲"]
 
-    # ✅ 기존 FAISS 검색 수행
+        return ["음... 아직 너의 취미를 잘 모르겠어! 알려주면 내가 꼭 기억할게! 😊"]
+
+    # ✅ 기존 FAISS 검색 수행 (변경 없음)
     index = load_faiss_index(chat_id)
     if index.ntotal == 0:
         return ["음... 이번 질문은 처음 듣는 것 같아요! 조금 더 설명해 주시면 좋을 것 같아요! 😊"]

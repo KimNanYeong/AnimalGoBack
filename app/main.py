@@ -1,50 +1,79 @@
 import sys
 import os
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from starlette.background import BackgroundTask
 
-# ✅ Firestore 관련 모듈 불러오기
+# Firestore 관련 모듈 불러오기
 import firebase_admin
 from firebase_admin import credentials, firestore
-# from app.core.firebase import db  # Firestore 초기화 모듈f
 from core import db
 
-# ✅ FAISS 벡터 DB 관련 모듈 추가!
+# FAISS 벡터 DB 관련 모듈 추가
 from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
 
-# ✅ 라우트 (API 엔드포인트) 불러오기
-# from app.routes.chat.chat import router as chat_router
-# from app.routes.chat.chat_history import router as chat_history_router
-# from app.routes.chat.chat_list import router as chat_list_router
-# from app.routes.chat.clear_chat import router as clear_chat_router
-
-from routes import chat_send_message_router, chat_history_router, chat_list_router, clear_chat_router
-
-# from app.routes.pets.pets import router as pets_router
-# from app.routes.pets.pet_traits import router as traits_router
-from routes import characters_router
-
-# from app.routes.users.user import router as user_router
-from routes import user_router
-
-# from app.routes.home.base import router as base_router
-# from app.routes.home.image_upload import router as image_router
-# from app.routes.home.character import router as character_router
-from routes import base_router, image_router, character_router, register_router, login_router
+# from routes import (
+#     chat_send_message_router, chat_history_router, chat_list_router, clear_chat_router,
+#     characters_router, user_router, base_router, image_router, character_router,
+#     register_router, login_router, show_image_router, create_router
+# )
 
 from routes import *
 
 from middleware.JWTMiddleWare import JWTMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-# ✅ 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ensure the log directory exists
+log_directory = 'log'
+if not os.path.exists(log_directory):
+    os.makedirs(log_directory)
 
-# ✅ FastAPI 애플리케이션 생성
+# ✅ 로깅 설정 (시간 포함)
+logger = logging.getLogger("main_logger")
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(os.path.join(log_directory, 'info.log'), encoding='utf-8')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+def log_info(req_method, req_url, req_headers, req_body, res_status, res_headers, res_body):
+    logger.info("")
+    logger.info(f"Request Method: {req_method}")
+    logger.info(f"Request URL: {req_url}")
+    logger.info(f"Request Headers: {req_headers}")
+    logger.info(f"Request Body: {req_body}")
+    logger.info(f"Response Status: {res_status}")
+    logger.info(f"Response Headers: {res_headers}")
+    logger.info(f"Response Body: {res_body}")
+    logger.info("")
+
 app = FastAPI()
 
-# ✅ CORS 설정 (프론트엔드에서 API 호출 가능하도록 설정)
+@app.middleware('http')
+async def log_middleware(request: Request, call_next):
+    req_method = request.method
+    req_url = str(request.url)
+    req_headers = dict(request.headers)
+    req_body = await request.body()
+
+    response = await call_next(request)
+
+    res_status = response.status_code
+    res_headers = dict(response.headers)
+    res_body = b''
+    async for chunk in response.body_iterator:
+        res_body += chunk
+
+    task = BackgroundTask(log_info, req_method, req_url, req_headers, req_body, res_status, res_headers, res_body)
+    return Response(content=res_body, status_code=res_status,
+                    headers=res_headers, media_type=response.media_type, background=task)
+
+# 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# CORS 설정 (프론트엔드에서 API 호출 가능하도록 설정)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 모든 도메인 허용 (배포 시 특정 도메인으로 제한 가능)
@@ -53,31 +82,24 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 요청 헤더 허용
 )
 
-# ✅ 서버 시작 시 FAISS 저장 디렉토리 자동 생성!
+# 서버 시작 시 FAISS 저장 디렉토리 자동 생성
 ensure_faiss_directory()
 
-# ✅ 서버 시작 시 기존 FAISS 인덱스 자동 로드!
+# 서버 시작 시 기존 FAISS 인덱스 자동 로드
 load_existing_faiss_indices()
 
-#User Router
+# API 라우트 등록 (각 기능별 엔드포인트 연결)
 app.include_router(user_router)
-
-# ✅ API 라우트 등록 (각 기능별 엔드포인트 연결)
 app.include_router(chat_send_message_router, prefix="/chat")
 app.include_router(chat_history_router, prefix="/chat")
 app.include_router(chat_list_router, prefix="/chat")
 app.include_router(clear_chat_router, prefix="/chat")
-
 app.include_router(characters_router, prefix="/pets")
-
-# app.include_router(user_router, prefix="/users")
 app.include_router(base_router, prefix="/home")
 app.include_router(image_router, prefix="/home")
 app.include_router(character_router, prefix="/home")
 app.include_router(register_router, prefix="/home")
 app.include_router(login_router, prefix="/home")
-
-
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
 
@@ -86,8 +108,6 @@ secret_key = os.getenv("SECRET_KEY")
 app.add_middleware(SessionMiddleware,secret_key=secret_key)
 app.add_middleware(JWTMiddleware)
 
-# ✅ FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
+# FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-#pip install itsdangerous
