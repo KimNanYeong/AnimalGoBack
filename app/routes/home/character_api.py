@@ -4,10 +4,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from firebase_admin import firestore
 from typing import Annotated, List, Optional
 from pydantic import BaseModel
-import logging
 
 # ✅ 로깅 설정
-logging.basicConfig(filename='log/character_api.log', level=logging.DEBUG)
 
 router = APIRouter()
 db = firestore.client()
@@ -47,7 +45,6 @@ async def update_character_nickname(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
     nickname: Annotated[str, Form(..., description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")],
 ):
-    logging.info(f"Request received to update character nickname: character_id={character_id}, nickname={nickname}")
 
     try:
         # 🔹 Firestore에서 기존 캐릭터 문서 확인
@@ -55,7 +52,6 @@ async def update_character_nickname(
         character_doc = character_ref.get()
         
         if not character_doc.exists:
-            logging.warning(f"Character ID not found in Firestore: {character_id}")
             raise HTTPException(status_code=404, detail="Character ID not found in Firestore")
         
         # 🔹 캐릭터 데이터 가져오기
@@ -65,13 +61,11 @@ async def update_character_nickname(
         character_path = character_data.get("character_path", "").strip()  # 기본값 빈 문자열 설정
 
         if not user_id:
-            logging.error(f"User ID is missing in Firestore document for character_id={character_id}")
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
         # ✅ 캐릭터 `status`가 `pending`이거나 `character_path`가 없으면 닉네임 등록 불가
-        if status == "pending" or not character_path:
-            logging.warning(f"Cannot update nickname for character_id={character_id} with status={status} or missing character_path")
-            raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
+        # if status == "pending" or not character_path:
+        #     raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
 
         # 🔹 캐릭터 닉네임 업데이트
         character_ref.update({
@@ -103,10 +97,10 @@ async def update_character_nickname(
             "chat_created": not chat_doc.exists,  # ✅ 채팅방 생성 여부 반환
             "message": "Character nickname updated successfully!"
         }
-        logging.info(f"Response for character_id={character_id}: {response}")
+        
         return response
     except Exception as e:
-        logging.error(f"Error updating character nickname for character_id={character_id}: {str(e)}")
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -123,7 +117,7 @@ async def update_character_nickname(
 async def get_user_characters(
     user_id: str = Form(..., description="조회할 사용자의 user_id (Form 데이터)")
 ):
-    logging.info(f"Request received to get user characters: user_id={user_id}")
+    
 
     try:
         # 🔹 Firestore에서 `user_id`가 일치하고 `status == "completed"`인 문서 조회
@@ -157,15 +151,12 @@ async def get_user_characters(
         # ✅ 캐릭터가 없을 경우 200 OK 반환 + "보유중인 캐릭터가 없습니다." 메시지
         if not characters_list:
             response = CharactersListResponse(user_id=user_id, characters=[], message="보유중인 캐릭터가 없습니다.")
-            logging.info(f"Response for user_id={user_id}: {response}")
             return response
 
         response = CharactersListResponse(user_id=user_id, characters=characters_list, message="완료된 캐릭터 목록 조회 성공")
-        logging.info(f"Response for user_id={user_id}: {response}")
         return response
 
     except Exception as e:
-        logging.error(f"Error retrieving user characters for user_id={user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -173,7 +164,6 @@ async def upload_character_image(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
     file: UploadFile = File(..., description="업로드할 변환된 캐릭터 이미지 (Transformed character image file)")
 ):
-    logging.info(f"Request received to upload character image: character_id={character_id}")
 
     try:
         # 🔹 Firestore에서 기존 characterId 문서 확인
@@ -181,14 +171,12 @@ async def upload_character_image(
         character_doc = character_ref.get()
 
         if not character_doc.exists:
-            logging.warning(f"Character ID not found in Firestore: {character_id}")
             raise HTTPException(status_code=404, detail="Character ID not found in Firestore")
 
         # 🔹 Firestore 문서에서 `user_id` 가져오기
         character_data = character_doc.to_dict()
         user_id = character_data.get("user_id")
         if not user_id:
-            logging.error(f"User ID is missing in Firestore document for character_id={character_id}")
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
         # 🔹 사용자별 저장 폴더 경로 생성
@@ -217,10 +205,8 @@ async def upload_character_image(
             "character_path": character_path,
             "message": "Transformed character image updated successfully!"
         }
-        logging.info(f"Response for character_id={character_id}: {response}")
         return response
     except Exception as e:
-        logging.error(f"Error uploading character image for character_id={character_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -236,7 +222,6 @@ async def upload_character_image(
     }
 )
 async def get_animals():
-    logging.info("Request received to get animals")
 
     try:
         # 🔹 Firestore에서 `animals` 컬렉션의 모든 문서 조회
@@ -244,9 +229,7 @@ async def get_animals():
         animals_list = [{"id": doc.id, **doc.to_dict()} for doc in animals_ref]
 
         response = {"animals": animals_list}
-        logging.info(f"Response: {response}")
         return response
 
     except Exception as e:
-        logging.error(f"Error retrieving animals: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
