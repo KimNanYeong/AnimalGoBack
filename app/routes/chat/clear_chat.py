@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
 from db.faiss_db import delete_faiss_index  # ✅ 추가
 
-
 # ✅ Firestore 클라이언트 생성
 db = firestore.client()
 
@@ -36,7 +35,8 @@ async def delete_chat(chat_id: str):
         # ✅ FAISS 벡터 DB에서 해당 채팅방의 벡터 삭제
         delete_faiss_index(chat_id)  # 🔥 FAISS 파일 삭제
 
-        return {"message": f"✅ 채팅방 {chat_id} 및 관련 데이터가 삭제되었습니다."}
+        response = {"message": f"✅ 채팅방 {chat_id} 및 관련 데이터가 삭제되었습니다."}
+        return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"🚨 채팅방 삭제 중 오류 발생: {str(e)}")

@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Form
 from firebase_admin import firestore
 from pydantic import BaseModel
 from typing import Annotated
+import os
 
 router = APIRouter()
 db = firestore.client()
@@ -40,21 +41,6 @@ class ErrorResponse(BaseModel):
     "/login",
     tags=["Auth"],
     summary="사용자 로그인",
-    # description="""
-    # 🔹 사용자 ID와 비밀번호를 입력하여 로그인하는 API.
-
-    # # **📌 요청 데이터 (Form)**
-    # # - `user_id`: 로그인할 사용자 ID (필수)
-    # # - `password`: 비밀번호 (필수)
-
-    # # **📌 응답 데이터**
-    # # - `access_token`: 로그인 성공 시 반환되는 JWT 토큰
-    # # - `token_type`: `bearer` (OAuth2 표준)
-    # # - `user_id`: 로그인한 사용자 ID
-    # # - `user_nickname`: 사용자 닉네임 (Firestore 필드 확인 필요)
-    # # - `role`: 사용자 역할 (기본값: `"user"`)
-    # # - `message`: 로그인 성공 메시지
-    # # """,
     response_model=UserLoginResponse,
     responses={
         200: {"description": "로그인 성공", "model": UserLoginResponse},
@@ -67,6 +53,7 @@ def login_user(
     user_id: Annotated[str, Form(..., description="로그인할 사용자 ID (Form 데이터)")],
     password: Annotated[str, Form(..., description="로그인할 사용자 비밀번호 (Form 데이터)")],
 ):
+
     try:
         # 🔹 Firestore에서 사용자 조회
         user_ref = db.collection("users").document(user_id)
@@ -92,7 +79,7 @@ def login_user(
         # 🔹 마지막 로그인 시간 업데이트
         user_ref.update({"last_login": firestore.SERVER_TIMESTAMP})
 
-        return UserLoginResponse(
+        response = UserLoginResponse(
             access_token=access_token,
             token_type="bearer",
             user_id=user_id,
@@ -100,5 +87,6 @@ def login_user(
             role=user_data.get("role", "user"),
             message="Login successful!"
         )
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
