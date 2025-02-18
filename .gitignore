@@ -1,4 +1,5 @@
 app/core/firebase_config.json
+firebase_config_ho.json
 # Ignore environment variables
 .env
 *.pyc
