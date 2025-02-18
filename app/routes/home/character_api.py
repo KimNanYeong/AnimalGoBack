@@ -121,7 +121,11 @@ async def get_user_characters(
 
     try:
         # 🔹 Firestore에서 `user_id`가 일치하고 `status == "completed"`인 문서 조회
-        characters_ref = db.collection("characters").where("user_id", "==", user_id).where("status", "==", "completed")
+        characters_ref = (
+            db.collection("characters")
+            .where("user_id", "==", user_id)
+            .where("status", "==", "completed")
+        )
         characters_docs = characters_ref.stream()
 
         characters_list: List[CharacterResponse] = []
@@ -147,6 +151,9 @@ async def get_user_characters(
                 character_path=character_path,
                 image_url=image_url
             ))
+
+        # ✅ 캐릭터 목록을 nickname 기준으로 정렬 (오름차순)
+        characters_list.sort(key=lambda x: x.nickname.lower())  # 대소문자 무시하고 정렬
 
         # ✅ 캐릭터가 없을 경우 200 OK 반환 + "보유중인 캐릭터가 없습니다." 메시지
         if not characters_list:
