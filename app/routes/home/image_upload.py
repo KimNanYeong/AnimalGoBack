@@ -4,6 +4,10 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from firebase_admin import firestore
 from pydantic import BaseModel, Field
 from typing import Annotated
+import logging
+
+# ✅ 로깅 설정
+logging.basicConfig(filename='log/image_upload.log', level=logging.DEBUG)
 
 router = APIRouter()
 db = firestore.client()
@@ -23,7 +27,6 @@ class ImageUploadResponse(BaseModel):
     message: str = Field(..., example="Original image stored successfully on the server!", description="API 응답 메시지")
 
 def get_document_id_by_field(collection_name, field_name, value):
- 
     # 🔹 Firestore에서 특정 필드 값을 기준으로 문서 조회
     query = db.collection(collection_name).where(field_name, "==", value).stream()
 
@@ -59,18 +62,21 @@ async def upload_original_image(
     - **animaltype**: 동물 유형
     - **file**: 업로드할 원본 이미지 파일
     """
+    logging.info(f"Request received to upload original image: user_id={user_id}, appearance={appearance}, personality={personality}, animaltype={animaltype}")
+
     try:
         # 🔹 Firestore에서 `users` 컬렉션에서 `user_id` 확인
         user_ref = db.collection("users").document(user_id)
         if not user_ref.get().exists:
+            logging.warning(f"User not found in Firestore: user_id={user_id}")
             raise HTTPException(status_code=400, detail="User not found in Firestore")
         
         appearance_id = get_document_id_by_field("appearance_traits", "korean", appearance)
         personality_id = get_document_id_by_field("personality_traits", "name", personality)
         animals_id = get_document_id_by_field("animals", "korean", animaltype)
-        #print ("===== eng animaltype === ", animals_id)
+        logging.info(f"Document IDs - appearance_id: {appearance_id}, personality_id: {personality_id}, animals_id: {animals_id}")
 
-        # 🔹 해당 `user_id`와 `animaltype (입력 한글) > animals_id (영문)`을 가진 캐릭터id  보유 개수 조회
+        # 🔹 해당 `user_id`와 `animaltype (입력 한글) > animals_id (영문)`을 가진 캐릭터id 보유 개수 조회
         characters_ref = db.collection("characters")
         existing_characters = characters_ref.where("user_id", "==", user_id).where("animaltype", "==", animals_id).stream()
         
@@ -78,8 +84,7 @@ async def upload_original_image(
 
         # 🔹 `{user_id}-{animaltype}{번호}` 형식의 문서명 생성
         character_id = f"{user_id}-{animals_id}{character_count:03d}"  # 001, 002, 003 ...
-        
-        #print ("===== character_id === ", character_id)
+        logging.info(f"Generated character_id: {character_id}")
 
         # 🔹 사용자별 저장 폴더 경로 생성
         user_folder = os.path.join(BASE_STORAGE_FOLDER, user_id, "originals")
@@ -90,10 +95,10 @@ async def upload_original_image(
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         original_path = os.path.join(user_folder, unique_filename)
 
- 
         # 🔹 파일 저장
         with open(original_path, "wb") as buffer:
             buffer.write(await file.read())
+        logging.info(f"File saved at: {original_path}")
 
         # 🔹 Firestore의 `characters` 문서에 저장
         character_ref = db.collection("characters").document(character_id)  # 🔹 문서명 지정
@@ -106,9 +111,9 @@ async def upload_original_image(
             "create_at": firestore.SERVER_TIMESTAMP,  # 🔹 생성 시각 추가
             "status": "pending"
         })
+        logging.info(f"Character document created in Firestore: {character_id}")
 
-
-        return {
+        response = {
             "characterId": character_id,  # 🔹 `{user_id}-{animaltype}{번호}` 반환
             "original_path": original_path,  # 🔹 응답에서도 `original_path` 반환
             "appearance": appearance_id,
@@ -116,5 +121,8 @@ async def upload_original_image(
             "animaltype": animals_id,
             "message": "Original image stored successfully on the server!"
         }
+        # logging.info(f"Response: {response}")
+        return response
     except Exception as e:
+        logging.error(f"Error uploading original image for user_id={user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

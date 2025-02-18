@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
+import logging
 
 # ✅ FastAPI 라우터 생성
 router = APIRouter()
 
 # ✅ Firestore 클라이언트 연결
 db = firestore.client()
+
+# ✅ 로깅 설정
+logging.basicConfig(filename='log/chat_list.log', level=logging.DEBUG)
 
 @router.get("/chat/list/{user_id}",
             tags=["chat"], 
@@ -17,7 +21,7 @@ async def get_chat_list(user_id: str):
     - Firestore `chats` 컬렉션에서 `chat_id`가 `user_id_`로 시작하는 문서들을 조회
     - `last_active_at` 기준으로 정렬하여 최신 채팅이 위로 오도록 반환
     """
-
+    logging.info(f"Request received for chat list with user_id: {user_id}")
     try:
         # ✅ Firestore에서 채팅방을 `last_active_at` 기준으로 정렬하여 가져오기
         chats_ref = db.collection("chats") \
@@ -48,9 +52,13 @@ async def get_chat_list(user_id: str):
             })
 
         if not chat_list:
+            logging.warning(f"No chats found for user_id: {user_id}")
             raise HTTPException(status_code=404, detail="No chats found for this user.")
 
-        return {"chats": chat_list}
+        response = {"chats": chat_list}
+        logging.info(f"Response for user_id {user_id}: {response}")
+        return response
 
     except Exception as e:
+        logging.error(f"Error retrieving chat list for user_id {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

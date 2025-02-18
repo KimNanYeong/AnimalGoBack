@@ -1,10 +1,28 @@
 import jwt
 import bcrypt
 import datetime
+import logging
 from fastapi import APIRouter, HTTPException, Form
 from firebase_admin import firestore
 from pydantic import BaseModel
 from typing import Annotated
+import os
+
+# Ensure the log directory exists
+log_directory = 'log'
+if not os.path.exists(log_directory):
+    os.makedirs(log_directory)
+
+# ✅ 로깅 설정 (시간 포함)
+logger = logging.getLogger("login_logger")
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(os.path.join(log_directory, 'login.log'))
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Suppress debug messages from python_multipart
+logging.getLogger("python_multipart").setLevel(logging.WARNING)
 
 router = APIRouter()
 db = firestore.client()
@@ -40,21 +58,6 @@ class ErrorResponse(BaseModel):
     "/login",
     tags=["Auth"],
     summary="사용자 로그인",
-    # description="""
-    # 🔹 사용자 ID와 비밀번호를 입력하여 로그인하는 API.
-
-    # # **📌 요청 데이터 (Form)**
-    # # - `user_id`: 로그인할 사용자 ID (필수)
-    # # - `password`: 비밀번호 (필수)
-
-    # # **📌 응답 데이터**
-    # # - `access_token`: 로그인 성공 시 반환되는 JWT 토큰
-    # # - `token_type`: `bearer` (OAuth2 표준)
-    # # - `user_id`: 로그인한 사용자 ID
-    # # - `user_nickname`: 사용자 닉네임 (Firestore 필드 확인 필요)
-    # # - `role`: 사용자 역할 (기본값: `"user"`)
-    # # - `message`: 로그인 성공 메시지
-    # # """,
     response_model=UserLoginResponse,
     responses={
         200: {"description": "로그인 성공", "model": UserLoginResponse},
@@ -67,12 +70,15 @@ def login_user(
     user_id: Annotated[str, Form(..., description="로그인할 사용자 ID (Form 데이터)")],
     password: Annotated[str, Form(..., description="로그인할 사용자 비밀번호 (Form 데이터)")],
 ):
+    logger.info(f"Request received to login user: user_id={user_id}")
+
     try:
         # 🔹 Firestore에서 사용자 조회
         user_ref = db.collection("users").document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
+            logger.warning(f"User not found: user_id={user_id}")
             raise HTTPException(status_code=404, detail="User not found")
 
         user_data = user_doc.to_dict()
@@ -80,6 +86,7 @@ def login_user(
 
         # 🔹 비밀번호 검증
         if not bcrypt.checkpw(password.encode("utf-8"), stored_hashed_password.encode("utf-8")):
+            logger.warning(f"Invalid password for user_id={user_id}")
             raise HTTPException(status_code=401, detail="Invalid password")
 
         # 🔹 로그인 성공 → JWT 토큰 생성
@@ -92,7 +99,7 @@ def login_user(
         # 🔹 마지막 로그인 시간 업데이트
         user_ref.update({"last_login": firestore.SERVER_TIMESTAMP})
 
-        return UserLoginResponse(
+        response = UserLoginResponse(
             access_token=access_token,
             token_type="bearer",
             user_id=user_id,
@@ -100,5 +107,8 @@ def login_user(
             role=user_data.get("role", "user"),
             message="Login successful!"
         )
+        logger.info(f"Response for user_id={user_id}: {response}")
+        return response
     except Exception as e:
+        logger.error(f"Error logging in user_id={user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
