@@ -10,24 +10,23 @@ import jwt
 """
 class JWTMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        
         print('middleware')
-
-        access_token = request.session.get("access_token")
-        refresh_token = request.session.get('refresh_token')
-
         # try:
-        #     payload = jwt.decode(access_token)
-        # except e:
-        # access_token = request.session.get('access_token')
-        # refresh_token = request.session.get('refresh_token')
+            # access_token = request.session.get("access_token")
+            # refresh_token = request.session.get('refresh_token')
 
-        # if not access_token or not refresh_token:
-        #     raise HTTPException(status_code=401, detail="Not authenticated")
+            # if not access_token or not refresh_token:
+            #     raise HTTPException(status_code=401, detail="Not authenticated")
 
-        # # Add tokens to request state for further use in the application
-        # request.state.access_token = access_token
-        # request.state.refresh_token = refresh_token
+            # Verify the access token
+            # token_data = verify_jwt_token(access_token)
+            # request.state.user = token_data
 
-        response = await call_next(request)
-        return response
+        #     response = await call_next(request)
+        # except HTTPException as e:
+        #     response = Response(content=str(e.detail), status_code=e.status_code)
+        # except Exception as e:
+        #     response = Response(content="Internal Server Error", status_code=500)
+        #     print(f"Unexpected error: {e}")
+
+        # return response

@@ -1,15 +1,14 @@
 import sys
 import os
-import logging
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from starlette.background import BackgroundTask
 
 # Firestore 관련 모듈 불러오기
 import firebase_admin
 from firebase_admin import credentials, firestore
 from core import db
+from core.Mongo import connect_to_mongo, close_mongo_connection
 
 # FAISS 벡터 DB 관련 모듈 추가
 from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
@@ -23,52 +22,10 @@ from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
 from routes import *
 
 from middleware.JWTMiddleWare import JWTMiddleware
+from middleware.LoggerMiddleWare import LoggerMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-# Ensure the log directory exists
-log_directory = 'log'
-if not os.path.exists(log_directory):
-    os.makedirs(log_directory)
-
-# ✅ 로깅 설정 (시간 포함)
-logger = logging.getLogger("main_logger")
-logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler(os.path.join(log_directory, 'info.log'), encoding='utf-8')
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-def log_info(req_method, req_url, req_headers, req_body, res_status, res_headers, res_body):
-    logger.info("")
-    logger.info(f"Request Method: {req_method}")
-    logger.info(f"Request URL: {req_url}")
-    logger.info(f"Request Headers: {req_headers}")
-    logger.info(f"Request Body: {req_body}")
-    logger.info(f"Response Status: {res_status}")
-    logger.info(f"Response Headers: {res_headers}")
-    logger.info(f"Response Body: {res_body}")
-    logger.info("")
-
 app = FastAPI()
-
-@app.middleware('http')
-async def log_middleware(request: Request, call_next):
-    req_method = request.method
-    req_url = str(request.url)
-    req_headers = dict(request.headers)
-    req_body = await request.body()
-
-    response = await call_next(request)
-
-    res_status = response.status_code
-    res_headers = dict(response.headers)
-    res_body = b''
-    async for chunk in response.body_iterator:
-        res_body += chunk
-
-    task = BackgroundTask(log_info, req_method, req_url, req_headers, req_body, res_status, res_headers, res_body)
-    return Response(content=res_body, status_code=res_status,
-                    headers=res_headers, media_type=response.media_type, background=task)
 
 # 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -105,8 +62,20 @@ app.include_router(create_router, prefix="/create")
 
 secret_key = os.getenv("SECRET_KEY")
 
-app.add_middleware(SessionMiddleware,secret_key=secret_key)
-app.add_middleware(JWTMiddleware)
+# app.add_middleware(SessionMiddleware, secret_key=secret_key)
+# app.add_middleware(JWTMiddleware)
+app.add_middleware(LoggerMiddleware)
+
+# MonGODB 초기화
+# mongo = MongoDB()
+
+@app.on_event('startup')
+async def db_connect():
+    await connect_to_mongo()
+
+@app.on_event('shutdown')
+async def db_close():
+    await close_mongo_connection()
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":

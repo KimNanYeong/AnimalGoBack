@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Form, Depends
 from firebase_admin import firestore
 from pydantic import BaseModel, Field
 from typing import Annotated
+import db.HomeModel as HomeModel
 
 router = APIRouter()
 db = firestore.client()
@@ -25,7 +26,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # 🔹 회원가입 API (폼 입력 지원)
 # ==========================
 @router.post("/register", tags=["Auth"], summary="회원가입", description="사용자가 회원가입을 수행하고 Firestore에 저장하는 API")
-def register_user(
+async def register_user(
     user_id: Annotated[str, Form(..., description="사용자 고유 ID (User's unique ID)")],
     password: Annotated[str, Form(..., description="사용자 비밀번호 (Password for authentication)")],
     confirm_password: Annotated[str, Form(..., description="비밀번호 확인 (Confirm password)")],
@@ -39,23 +40,27 @@ def register_user(
     """
     try:
         # 비밀번호 일치 확인
-        if password != confirm_password:
-            raise HTTPException(status_code=400, detail="Passwords do not match")
+        # if password != confirm_password:
+        #     raise HTTPException(status_code=400, detail="Passwords do not match")
 
-        # Firestore에서 user_id 중복 체크
-        user_ref = db.collection("users").document(user_id)
-        if user_ref.get().exists:
-            raise HTTPException(status_code=400, detail="User ID already exists")
+        # # Firestore에서 user_id 중복 체크
+        # user_ref = db.collection("users").document(user_id)
+        # if user_ref.get().exists:
+        #     raise HTTPException(status_code=400, detail="User ID already exists")
+        
+        # MongoDB추가 박건희
+        user = await HomeModel.get_user_by_id(user_id)
+        
 
         # 비밀번호 해싱
-        hashed_pw = hash_password(password)
+        # hashed_pw = hash_password(password)
 
-        # Firestore에 사용자 정보 저장
-        user_ref.set({
-            "user_nickname": user_nickname,
-            "hashed_password": hashed_pw,
-            "create_at": firestore.SERVER_TIMESTAMP
-        })
+        # # Firestore에 사용자 정보 저장
+        # user_ref.set({
+        #     "user_nickname": user_nickname,
+        #     "hashed_password": hashed_pw,
+        #     "create_at": firestore.SERVER_TIMESTAMP
+        # })
 
         return {"userId": user_id, "message": f"User {user_nickname} registered successfully!"}
     except Exception as e:

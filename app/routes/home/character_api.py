@@ -129,6 +129,10 @@ async def get_user_characters(
             character_data = doc.to_dict()
             character_id = doc.id
 
+            #닉네임 없는 경우 미출력 추가 박건희
+            if character_data.get("nickname"):
+                continue
+
             # 🔹 이미지 URL 생성 (기본 경로 포함)
             character_path = character_data.get("character_path")
             image_url = None

@@ -6,3 +6,4 @@ firebase_config_ys.json
 *.pyc
 app/*.pyc
 __pycache__/
+info.log
