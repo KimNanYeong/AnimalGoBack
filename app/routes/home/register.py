@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Form, Depends
 from firebase_admin import firestore
 from pydantic import BaseModel, Field
 from typing import Annotated
-import db.HomeModel as HomeModel
+import time
 
 router = APIRouter()
 db = firestore.client()
@@ -40,27 +40,23 @@ async def register_user(
     """
     try:
         # 비밀번호 일치 확인
-        # if password != confirm_password:
-        #     raise HTTPException(status_code=400, detail="Passwords do not match")
+        if password != confirm_password:
+            raise HTTPException(status_code=400, detail="Passwords do not match")
 
-        # # Firestore에서 user_id 중복 체크
-        # user_ref = db.collection("users").document(user_id)
-        # if user_ref.get().exists:
-        #     raise HTTPException(status_code=400, detail="User ID already exists")
+        # Firestore에서 user_id 중복 체크
+        user_ref = db.collection("users").document(user_id)
+        if user_ref.get().exists:
+            raise HTTPException(status_code=400, detail="User ID already exists")
         
-        # MongoDB추가 박건희
-        user = await HomeModel.get_user_by_id(user_id)
-        
-
         # 비밀번호 해싱
-        # hashed_pw = hash_password(password)
+        hashed_pw = hash_password(password)
 
         # # Firestore에 사용자 정보 저장
-        # user_ref.set({
-        #     "user_nickname": user_nickname,
-        #     "hashed_password": hashed_pw,
-        #     "create_at": firestore.SERVER_TIMESTAMP
-        # })
+        user_ref.set({
+            "user_nickname": user_nickname,
+            "hashed_password": hashed_pw,
+            "create_at": firestore.SERVER_TIMESTAMP
+        })
 
         return {"userId": user_id, "message": f"User {user_nickname} registered successfully!"}
     except Exception as e:

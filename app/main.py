@@ -62,20 +62,20 @@ app.include_router(create_router, prefix="/create")
 
 secret_key = os.getenv("SECRET_KEY")
 
-# app.add_middleware(SessionMiddleware, secret_key=secret_key)
-# app.add_middleware(JWTMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(JWTMiddleware)
 app.add_middleware(LoggerMiddleware)
 
 # MonGODB 초기화
 # mongo = MongoDB()
 
-@app.on_event('startup')
-async def db_connect():
-    await connect_to_mongo()
+# @app.on_event('startup')
+# async def db_connect():
+#     await connect_to_mongo()
 
-@app.on_event('shutdown')
-async def db_close():
-    await close_mongo_connection()
+# @app.on_event('shutdown')
+# async def db_close():
+#     await close_mongo_connection()
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
