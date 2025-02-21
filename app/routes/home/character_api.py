@@ -10,7 +10,7 @@ from pydantic import BaseModel
 router = APIRouter()
 db = firestore.client()
 
-BASE_STORAGE_FOLDER = "C:/animal-storage"  # ------------- 삭제 예정
+BASE_STORAGE_FOLDER = "C:/animal-storage"   
 
 class CharacterResponse(BaseModel):
     character_id: str
@@ -38,34 +38,41 @@ class AnimalsListResponse(BaseModel):
 # ================================================================
 @router.post(
     "/nickname",
-    summary="캐릭터 닉네임 추가/수정 및 채팅방 자동 생성",  tags=["Basic"],
+    summary="캐릭터 닉네임 추가/수정 및 채팅방 자동 생성",
+    tags=["Basic"],
     description="입력된 character_id의 Firestore 문서에서 nickname을 추가하거나 수정하고, chats 컬렉션에 채팅방을 자동 생성하는 API"
 )
 async def update_character_nickname(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
-    nickname: Annotated[str, Form(..., description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")],
+    nickname: Annotated[str, Form(None, description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")]
 ):
-
     try:
         # 🔹 Firestore에서 기존 캐릭터 문서 확인
         character_ref = db.collection("characters").document(character_id)
         character_doc = character_ref.get()
-        
+
         if not character_doc.exists:
             raise HTTPException(status_code=404, detail="Character ID not found in Firestore")
-        
+
         # 🔹 캐릭터 데이터 가져오기
         character_data = character_doc.to_dict()
         user_id = character_data.get("user_id")
         status = character_data.get("status", "unknown")  # 기본값 "unknown" 설정
         character_path = character_data.get("character_path", "").strip()  # 기본값 빈 문자열 설정
+        animaltype = character_data.get("animaltype", "unknown")  # 동물 유형 가져오기
 
         if not user_id:
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
-        # ✅ 캐릭터 `status`가 `pending`이거나 `character_path`가 없으면 닉네임 등록 불가
-        # if status == "pending" or not character_path:
-        #     raise HTTPException(status_code=400, detail="캐릭터 생성 전으로 닉네임을 등록할 수 없습니다")
+        # ✅ 닉네임이 입력되지 않으면 `animaltype` 기반으로 기본 닉네임 설정
+        if not nickname:
+            animal_ref = db.collection("animals").document(animaltype)
+            animal_doc = animal_ref.get()
+            
+            if animal_doc.exists:
+                nickname = animal_doc.to_dict().get("english_name", "UnknownAnimal")
+            else:
+                nickname = "UnknownAnimal"
 
         # 🔹 캐릭터 닉네임 업데이트
         character_ref.update({
@@ -84,7 +91,7 @@ async def update_character_nickname(
                 "user_id": user_id,
                 "nickname": nickname,
                 "personality": character_data.get("personality", "unknown"),
-                "animaltype": character_data.get("animaltype", "unknown"),
+                "animaltype": animaltype,
                 "create_at": firestore.SERVER_TIMESTAMP,
                 "last_active_at": firestore.SERVER_TIMESTAMP,
                 "last_message": None
@@ -100,11 +107,12 @@ async def update_character_nickname(
         
         return response
     except Exception as e:
-        
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ✅ Form 데이터 기반 캐릭터 목록 조회 API (completed 상태만 필터링, personality & animaltype 제외)
+# =================================================
+# ✅ 캐릭터 목록 조회 API (completed 상태만 필터링 )
+# =================================================
 @router.post(
     "/characters",
     summary="특정 user 의 '완료된' 캐릭터 목록 조회",  tags=["Basic"],
