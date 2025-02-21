@@ -38,6 +38,14 @@ app.add_middleware(
     allow_methods=["*"],  # 모든 HTTP 메서드 허용 (GET, POST, DELETE 등)
     allow_headers=["*"],  # 모든 요청 헤더 허용
 )
+# 그 다음 세션 미들웨어
+# secret_key = os.getenv("SECRET_KEY")
+# if not secret_key:
+#     raise ValueError("SECRET_KEY environment variable is not set")
+
+# app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(LoggerMiddleware)
+# app.add_middleware(JWTMiddleware)
 
 # 서버 시작 시 FAISS 저장 디렉토리 자동 생성
 ensure_faiss_directory()
@@ -59,12 +67,6 @@ app.include_router(register_router, prefix="/home")
 app.include_router(login_router, prefix="/home")
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
-
-secret_key = os.getenv("SECRET_KEY")
-
-app.add_middleware(SessionMiddleware, secret_key=secret_key)
-app.add_middleware(JWTMiddleware)
-app.add_middleware(LoggerMiddleware)
 
 # MonGODB 초기화
 # mongo = MongoDB()

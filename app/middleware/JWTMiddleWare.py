@@ -15,9 +15,15 @@ SECRET_KEY = os.getenv("SECRET_KEY")
     미들웨어
     토큰 검증 시작
 """
-class JWTMiddleware(BaseHTTPMiddleware):
+
+def verify_jwt_token(token: str) -> dict:
+    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    if payload["exp"] < datetime.now(timezone.utc).timestamp():
+        return payload
     
+class JWTMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        print('middle ware')
         if request.url.path in EXCLUDE_PATHS:
             return await call_next(request)
         try:
@@ -43,17 +49,3 @@ class JWTMiddleware(BaseHTTPMiddleware):
             response = Response(content="Internal Server Error", status_code=500)
             print(f"Unexpected error: {e}")
         return response
-    
-def verify_jwt_token(token: str) -> dict:
-    payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    if payload["exp"] < datetime.now(timezone.utc).timestamp():
-        return payload
-    # try:
-    #     payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    #     if payload["exp"] < datetime.now(timezone.utc).timestamp():
-    #         raise HTTPException(status_code=401, detail="Token has expired")
-    #     return payload
-    # except jwt.ExpiredSignatureError:
-    #     raise HTTPException(status_code=401, detail="Token has expired")
-    # except jwt.InvalidTokenError:
-    #     raise HTTPException(status_code=401, detail="Invalid token")
