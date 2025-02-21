@@ -44,7 +44,7 @@ class AnimalsListResponse(BaseModel):
 )
 async def update_character_nickname(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
-    nickname: Annotated[str, Form(None, description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")]
+    nickname: Annotated[str, Form(..., description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")]
 ):
     try:
         # 🔹 Firestore에서 기존 캐릭터 문서 확인
@@ -57,6 +57,7 @@ async def update_character_nickname(
         # 🔹 캐릭터 데이터 가져오기
         character_data = character_doc.to_dict()
         user_id = character_data.get("user_id")
+
         status = character_data.get("status", "unknown")  # 기본값 "unknown" 설정
         character_path = character_data.get("character_path", "").strip()  # 기본값 빈 문자열 설정
         animaltype = character_data.get("animaltype", "unknown")  # 동물 유형 가져오기
@@ -64,15 +65,9 @@ async def update_character_nickname(
         if not user_id:
             raise HTTPException(status_code=500, detail="User ID is missing in Firestore document")
 
-        # ✅ 닉네임이 입력되지 않으면 `animaltype` 기반으로 기본 닉네임 설정
+        # ✅ 닉네임이 입력되지 않으면 `animaltype`으로 기본 닉네임 설정
         if not nickname:
-            animal_ref = db.collection("animals").document(animaltype)
-            animal_doc = animal_ref.get()
-            
-            if animal_doc.exists:
-                nickname = animal_doc.to_dict().get("english_name", "UnknownAnimal")
-            else:
-                nickname = "UnknownAnimal"
+            nickname = animaltype
 
         # 🔹 캐릭터 닉네임 업데이트
         character_ref.update({
@@ -84,8 +79,12 @@ async def update_character_nickname(
         chat_ref = db.collection("chats").document(character_id)
         chat_doc = chat_ref.get()
 
-        # ✅ 채팅방이 없을 경우 생성
-        if not chat_doc.exists:
+        # ✅ 채팅방이 존재하는 경우 닉네임 업데이트
+        if chat_doc.exists:
+            chat_ref.update({"nickname": nickname})  # 기존 채팅방 닉네임 업데이트
+            chat_created = False  # 기존 채팅방이 존재하므로 생성 X
+        else:
+            # ✅ 채팅방이 없을 경우 생성
             chat_data = {
                 "chat_id": character_id,
                 "user_id": user_id,
@@ -97,6 +96,7 @@ async def update_character_nickname(
                 "last_message": None
             }
             chat_ref.set(chat_data)  # 🔹 Firestore에 채팅방 저장
+            chat_created = True  # 신규 채팅방 생성됨
 
         response = {
             "characterId": character_id,
@@ -210,7 +210,7 @@ async def upload_character_image(
         # 🔹 Firestore 문서 업데이트 (`character_path` 필드 변경)
         character_ref.update({
             "character_path": character_path,  # 🔹 사용자별 폴더에 저장된 경로 반영
-            "updatedAt": firestore.SERVER_TIMESTAMP,  # 🔹 업데이트된 시간 기록
+            "character_update_at": firestore.SERVER_TIMESTAMP,  # 🔹 업데이트된 시간 기록
             "status": "completed"  # 🔹 상태 변경
         })
 
