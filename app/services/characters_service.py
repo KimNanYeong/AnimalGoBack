@@ -2,7 +2,7 @@ from firebase_admin import firestore
 from fastapi import HTTPException
 from datetime import datetime
 from services import initialize_chat
-from db.faiss_db import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
+from vectorstore.faiss_cleanup import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
 
 
 db = firestore.client()

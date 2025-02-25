@@ -44,7 +44,7 @@ class AnimalsListResponse(BaseModel):
 )
 async def update_character_nickname(
     character_id: Annotated[str, Form(..., description="기존 캐릭터 ID (Existing character ID)")],
-    nickname: Annotated[str, Form(None, description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")]
+    nickname: Annotated[str, Form(..., description="새로운 또는 수정할 캐릭터 닉네임 (Character nickname)")]
 ):
     try:
         # 🔹 Firestore에서 기존 캐릭터 문서 확인

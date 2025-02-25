@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from services.characters_service import delete_character
 from schemas.characters import CharacterCreateRequest, CharacterResponse  # ✅ 스키마 가져오기
-from db.faiss_db import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
+from vectorstore.faiss_cleanup import delete_faiss_index  # ✅ FAISS 벡터 삭제 함수 추가
 
 router = APIRouter()
 

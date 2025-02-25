@@ -1,10 +1,9 @@
 import os
 from fastapi import APIRouter, HTTPException, Query
-from services.chat_service import generate_ai_response, get_character_data, initialize_chat
+from services.chat_service import generate_ai_response, get_character_data
 from firebase_admin import firestore
-from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
-
-# Suppress debug messages from python_multipart
+from vectorstore.faiss_storage import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
+from services.firestore_utils import initialize_chat
 
 router = APIRouter()
 db = firestore.client()
@@ -18,8 +17,6 @@ async def chat_with_ai(
     user_id: str = Query(..., description="User ID"),
     charac_id: str = Query(..., description="Character ID")
 ):
-    
-
     if not user_input.strip():
         raise HTTPException(status_code=400, detail="Empty message not allowed")
 
@@ -31,7 +28,7 @@ async def chat_with_ai(
         raise HTTPException(status_code=404, detail="Character data not found")
 
     # ✅ 채팅방이 존재하지 않으면 자동 생성
-    initialize_chat(user_id, charac_id, character_data)  # 🔥 여기에 추가
+    initialize_chat(user_id, charac_id, character_data)
 
     # ✅ AI 응답 생성
     ai_response, error = generate_ai_response(user_id, charac_id, user_input)
@@ -51,8 +48,8 @@ async def chat_with_ai(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Firestore 저장 중 오류 발생")
 
-    # ✅ Firestore 저장 후 해당 채팅방의 FAISS 벡터 DB에 저장
-    store_chat_in_faiss(chat_id, charac_id)  # 🔥 채팅방별 벡터 DB 저장
+    # ✅ Firestore 저장 성공한 경우에만 FAISS 벡터 DB 업데이트 (중복 실행 방지)
+    if ai_response:
+        store_chat_in_faiss(chat_id)  # 🔥 Firestore 저장 성공 후 실행
 
-    response = {"response": ai_response}
-    return response
+    return {"response": ai_response}

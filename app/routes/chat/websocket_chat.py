@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query
 from services.chat_service import generate_ai_response, get_character_data, initialize_chat
 from firebase_admin import firestore
-from db.faiss_db import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
+from vectorstore.faiss_storage import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
 import json
 
 router = APIRouter()

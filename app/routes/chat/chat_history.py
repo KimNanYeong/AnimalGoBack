@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from firebase_admin import firestore
 from datetime import datetime, timezone, timedelta
-from db.faiss_db import store_chat_in_faiss
+from vectorstore.faiss_storage import store_chat_in_faiss
 import os
 
 # ✅ Firestore 클라이언트 연결
