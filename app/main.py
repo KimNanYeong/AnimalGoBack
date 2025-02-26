@@ -8,7 +8,7 @@ import uvicorn
 import firebase_admin
 from firebase_admin import credentials, firestore
 from core import db
-from core.Mongo import connect_to_mongo, close_mongo_connection
+# from core.Mongo import connect_to_mongo, close_mongo_connection
 
 # FAISS 벡터 DB 관련 모듈 추가
 from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
@@ -24,6 +24,9 @@ from routes import *
 from middleware.JWTMiddleWare import JWTMiddleware
 from middleware.LoggerMiddleWare import LoggerMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+
+# personality 의존성 주입
+from util.PersonalityUtil import load_personality
 
 app = FastAPI()
 
@@ -68,16 +71,17 @@ app.include_router(login_router, prefix="/home")
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
 
-# MonGODB 초기화
-# mongo = MongoDB()
+app.include_router(village_router)
 
-# @app.on_event('startup')
-# async def db_connect():
-#     await connect_to_mongo()
+@app.on_event("startup")
+async def init():
+    await load_personality()
+    # await connect_to_mongo()
 
 # @app.on_event('shutdown')
 # async def db_close():
 #     await close_mongo_connection()
+
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import logging
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.background import BackgroundTask
+import time
 
 # Ensure the log directory exists
 log_directory = 'log'
@@ -12,7 +13,8 @@ if not os.path.exists(log_directory):
 # ✅ 로깅 설정 (시간 포함)
 logger = logging.getLogger("main_logger")
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler(os.path.join(log_directory, 'info.log'), encoding='utf-8')
+today = time.strftime("%Y-%m-%d")
+file_handler = logging.FileHandler(os.path.join(log_directory, f'{today}_info.log'), encoding='utf-8')
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
