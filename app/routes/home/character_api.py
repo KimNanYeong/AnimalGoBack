@@ -110,6 +110,65 @@ async def update_character_nickname(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# =====================================
+# 🔹 동물 캐릭터 간 채팅방 자동 생성 추가
+# =====================================
+@router.post(
+    "/animal_chatroom",
+    summary="두 캐릭터 ID를 활용한 채팅방 생성",
+    tags=["Basic"],
+    description="두 개의 character_id를 받아, {A 캐릭터_id}-{B 캐릭터_id} 형식의 채팅방을 Firestore에 생성하는 API"
+)
+async def create_chatroom_between_characters(
+    character_id_a: Annotated[str, Form(..., description="첫 번째 캐릭터 ID")],
+    character_id_b: Annotated[str, Form(..., description="두 번째 캐릭터 ID")]
+):
+    try:
+        # 🔹 Firestore에서 각 캐릭터 문서 조회
+        char_a_ref = db.collection("characters").document(character_id_a)
+        char_a_doc = char_a_ref.get()
+        if not char_a_doc.exists:
+            raise HTTPException(status_code=404, detail=f"Character ID {character_id_a} not found")
+
+        char_b_ref = db.collection("characters").document(character_id_b)
+        char_b_doc = char_b_ref.get()
+        if not char_b_doc.exists:
+            raise HTTPException(status_code=404, detail=f"Character ID {character_id_b} not found")
+
+        # 🔹 채팅방 ID 생성 (형식: {A 캐릭터_id}-{B 캐릭터_id})
+        chat_room_id = f"{character_id_a}_{character_id_b}"
+
+        # 🔹 채팅방 문서 참조 생성 및 존재 여부 확인
+        chat_ref = db.collection("chats").document(chat_room_id)
+        chat_doc = chat_ref.get()
+
+        if chat_doc.exists:
+            # 이미 존재하는 채팅방이면 해당 정보를 반환
+            return {
+                "chat_room_id": chat_room_id,
+                "message": "채팅방이 이미 존재합니다.",
+                "chat_created": False
+            }
+        else:
+            # 🔹 새로운 채팅방 데이터 생성
+            chat_data = {
+                "chat_id": chat_room_id,
+                "participants": [character_id_a, character_id_b],
+                "create_at": firestore.SERVER_TIMESTAMP,
+                "last_active_at": firestore.SERVER_TIMESTAMP,
+                "last_message": None
+            }
+            chat_ref.set(chat_data)  # Firestore에 채팅방 저장
+
+            return {
+                "chat_room_id": chat_room_id,
+                "message": "채팅방이 성공적으로 생성되었습니다.",
+                "chat_created": True
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =================================================
 # ✅ 캐릭터 목록 조회 API (completed 상태만 필터링 )
 # =================================================
@@ -225,7 +284,9 @@ async def upload_character_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ======================================
 # 🔹 Firestore `animals` 컬렉션 조회 API
+# ======================================
 @router.get(
     "/animals",
     summary="동물 목록 조회",  tags=["Basic"],
