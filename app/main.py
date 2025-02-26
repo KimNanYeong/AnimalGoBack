@@ -1,17 +1,18 @@
 import sys
 import os
 import logging
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from starlette.background import BackgroundTask
 
 # Firestore 관련 모듈 불러오기
 import firebase_admin
 from firebase_admin import credentials, firestore
 from core import db
+# from core.Mongo import connect_to_mongo, close_mongo_connection
 from datetime import datetime
 
+from datetime import datetime
 # FAISS 벡터 DB 관련 모듈 추가
 from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
 
@@ -28,52 +29,14 @@ from routes.chat.websocket_chat import router as websocket_router  # WebSocket �
 from routes.chat.websocket_chat_list import router as websocket_chat_list_router
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-# Ensure the log directory exists
-log_directory = 'log'
-if not os.path.exists(log_directory):
-    os.makedirs(log_directory)
+from middleware.JWTMiddleWare import JWTMiddleware
+from middleware.LoggerMiddleWare import LoggerMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
-# ✅ 로깅 설정 (시간 포함)
-
-logger = logging.getLogger("main_logger")
-logger.setLevel(logging.DEBUG)
-current_time = datetime.now().strftime('%Y-%m-%d')
-file_handler = logging.FileHandler(os.path.join(log_directory, f'{current_time}_info.log'), encoding='utf-8')
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-
-def log_info(req_method, req_url, req_headers, req_body, res_status, res_headers, res_body):
-    logger.info("")
-    logger.info(f"Request Method: {req_method}")
-    logger.info(f"Request URL: {req_url}")
-    logger.info(f"Request Headers: {req_headers}")
-    logger.info(f"Request Body: {req_body}")
-    logger.info(f"Response Status: {res_status}")
-    logger.info(f"Response Headers: {res_headers}")
-    logger.info(f"Response Body: {res_body}")
-    logger.info("")
+# personality 의존성 주입
+from util.PersonalityUtil import load_personality
 
 app = FastAPI()
-
-@app.middleware('http')
-async def log_middleware(request: Request, call_next):
-    req_method = request.method
-    req_url = str(request.url)
-    req_headers = dict(request.headers)
-    req_body = await request.body()
-
-    response = await call_next(request)
-
-    res_status = response.status_code
-    res_headers = dict(response.headers)
-    res_body = b''
-    async for chunk in response.body_iterator:
-        res_body += chunk
-
-    task = BackgroundTask(log_info, req_method, req_url, req_headers, req_body, res_status, res_headers, res_body)
-    return Response(content=res_body, status_code=res_status,
-                    headers=res_headers, media_type=response.media_type, background=task)
 
 # 현재 실행 중인 파일의 경로를 sys.path에 추가 (모듈 경로 문제 해결)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -86,6 +49,14 @@ app.add_middleware(
     allow_methods=["*"],  # 모든 HTTP 메서드 허용 (GET, POST, DELETE 등)
     allow_headers=["*"],  # 모든 요청 헤더 허용
 )
+# 그 다음 세션 미들웨어
+# secret_key = os.getenv("SECRET_KEY")
+# if not secret_key:
+#     raise ValueError("SECRET_KEY environment variable is not set")
+
+# app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(LoggerMiddleware)
+# app.add_middleware(JWTMiddleware)
 
 # 서버 시작 시 FAISS 저장 디렉토리 자동 생성
 ensure_faiss_directory()
@@ -117,15 +88,18 @@ app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=["*", "localhost", "127.0.0.1", "192.168.0.1", " 122.46.89.124"]
 )
 
-# ✅ 모든 도메인에서 WebSocket 허용 (테스트용)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+app.include_router(village_router)
+
+@app.on_event("startup")
+async def init():
+    await load_personality()
+    # await connect_to_mongo()
+
+# @app.on_event('shutdown')
+# async def db_close():
+#     await close_mongo_connection()
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
