@@ -10,7 +10,6 @@ from starlette.background import BackgroundTask
 import firebase_admin
 from firebase_admin import credentials, firestore
 from core import db
-from datetime import datetime
 
 # FAISS 벡터 DB 관련 모듈 추가
 from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
@@ -23,22 +22,15 @@ from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
 
 from routes import *
 
-#웹소켓 추가
-from routes.chat.websocket_chat import router as websocket_router  # WebSocket 라우트 추가
-from routes.chat.websocket_chat_list import router as websocket_chat_list_router
-from starlette.middleware.trustedhost import TrustedHostMiddleware
-
 # Ensure the log directory exists
 log_directory = 'log'
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)
 
 # ✅ 로깅 설정 (시간 포함)
-
 logger = logging.getLogger("main_logger")
 logger.setLevel(logging.DEBUG)
-current_time = datetime.now().strftime('%Y-%m-%d')
-file_handler = logging.FileHandler(os.path.join(log_directory, f'{current_time}_info.log'), encoding='utf-8')
+file_handler = logging.FileHandler(os.path.join(log_directory, 'info.log'), encoding='utf-8')
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
@@ -107,24 +99,6 @@ app.include_router(register_router, prefix="/home")
 app.include_router(login_router, prefix="/home")
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
-
-# ✅ WebSocket 라우트 등록
-app.include_router(websocket_router)
-app.include_router(websocket_chat_list_router, prefix="/chat")
-
-# ✅ WebSocket을 위한 허용된 호스트 설정 추가
-app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=["*", "localhost", "127.0.0.1", "192.168.0.1", " 122.46.89.124"]
-)
-
-# ✅ 모든 도메인에서 WebSocket 허용 (테스트용)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
