@@ -21,4 +21,6 @@ from .image.ShowImageRoutes import router as show_image_router
 from .create.CreateRouter import router as create_router
 from .home.login import router as login_router
 
+from .home.chat_api import router as character_router # 임시 
+
 from .village.VillageRouter import router as village_router
