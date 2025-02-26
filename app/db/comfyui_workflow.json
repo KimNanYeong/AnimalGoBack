@@ -64,7 +64,7 @@
     "inputs": {
       "seed": 616908883095913,
       "steps": 30,
-      "cfg": 2,
+      "cfg": 5,
       "sampler_name": "euler_ancestral",
       "scheduler": "karras",
       "denoise": 0.5,

@@ -7,4 +7,5 @@ firebase_config_ys.json
 app/*.pyc
 __pycache__/
 log/
+db/faiss/
 info.log

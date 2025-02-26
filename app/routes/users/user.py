@@ -11,7 +11,7 @@ router = APIRouter()
 COMFYUI_URL = "http://127.0.0.1:8188"
 
 @router.post("/send-charater/{character_id}")
-async def send_character(character_id: str, background_tasks: BackgroundTasks):
+async def send_character(character_id: str):
     """
     캐릭터 ID를 받아 캐릭터 정보를 반환하는 API
     :param character_id: 캐릭터 ID

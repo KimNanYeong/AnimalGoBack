@@ -11,7 +11,8 @@ from core.firebase import db
 import routes.home.character_api as home_charac
 
 COMFYUI_SERVER_URL = "127.0.0.1:8188"  # ComfyUI 서버 URL
-COMFYUI_WORKFLOW_PATH = "app/db/comfyui_workflow.json"  # 워크플로우 JSON 파일 경로
+COMFYUI_WORKFLOW_PATH = r"app/db/comfyui_workflow.json"  # 워크플로우 JSON 파일 경로
+print(f"파일 경로 확인: {COMFYUI_WORKFLOW_PATH}")
 # DEFAULT_OUTPUT_FILENAME = "output/generated_image.png"  # 생성된 이미지 저장 경로
 
 def generate_random_seed():
