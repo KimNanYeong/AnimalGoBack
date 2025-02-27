@@ -1,41 +1,44 @@
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from vectorstore.faiss_init import load_faiss_index
-import services.firestore_utils as firestore_utils  # ✅ 순환 참조 방지
+from vectorstore.faiss_init import get_faiss_index, get_sentence_model
+from firebase_admin import firestore
 
-model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+# ✅ Firestore 연결
+db = firestore.client()
+
+# ✅ 모델 캐싱 (서버 실행 시 한 번만 로드)
+model = get_sentence_model()
 
 def search_similar_messages(chat_id, query, top_k=5):
-    """🔥 FAISS 검색 수행 후 의미 있는 문장만 반환하도록 개선"""
-    index = load_faiss_index(chat_id)
+    """🔥 Firestore 전체 로드를 없애고 필요한 문서만 조회"""
+    index = get_faiss_index(chat_id)  # ✅ 기존 인덱스를 필요할 때만 로드
     if index.ntotal == 0:
-        return ["음... 이번 질문은 처음 듣는 것 같아요!"]  # ✅ 빈 인덱스일 경우 기본 메시지 반환
+        return ["음... 이번 질문은 처음 듣는 것 같아요!"]
 
-    # ✅ 쿼리 벡터 변환
     query_vector = model.encode(query)
     query_vector = np.array([query_vector], dtype=np.float32)
     faiss.normalize_L2(query_vector)
 
-    # ✅ FAISS 검색 수행 (top_k 개수만 가져오기)
     scores, indices = index.search(query_vector, min(top_k, index.ntotal))
 
-    # ✅ Firestore에서 대화 데이터 가져오기
-    chat_messages = firestore_utils.get_chat_messages(chat_id)
+    # 🔥 Firestore에서 필요한 문서 ID만 가져오기
+    doc_ref = db.collection("faiss_indices").document(chat_id)
+    doc_data = doc_ref.get().to_dict()
+    doc_ids = doc_data.get("doc_ids", []) if doc_data else []
 
     results = []
-    seen_texts = set()  # ✅ 중복 제거를 위한 `set()`
-    
-    for score, idx in zip(scores[0], indices[0]):
-        if 0 <= idx < len(chat_messages):
-            original_text = chat_messages[idx]["content"]
+    seen_texts = set()
 
-            # ✅ 중복 문장 방지 및 의미 없는 문장 필터링
-            if original_text not in seen_texts and 1 - score > 0.7:  # ✅ 유사도가 0.7 이상일 때만 포함
+    # 🔥 Firestore에서 개별 문서만 가져오기 (전체 로드 X)
+    doc_snapshots = db.get_all([db.collection(f"chats/{chat_id}/messages").document(doc_ids[idx]) 
+                                for idx in indices[0] if 0 <= idx < len(doc_ids)])
+
+    for score, doc in zip(scores[0], doc_snapshots):
+        msg_data = doc.to_dict()
+        if msg_data:
+            original_text = msg_data["content"]
+            if original_text not in seen_texts and 1 - score > 0.7:
                 seen_texts.add(original_text)
                 results.append((original_text, 1 - score))
 
-    # ✅ 유사도가 높은 순으로 정렬 후 반환
-    sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
-    
-    return [text for text, _ in sorted_results[:top_k]]
+    return [text for text, _ in sorted(results, key=lambda x: x[1], reverse=True)][:top_k]

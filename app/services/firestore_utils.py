@@ -1,5 +1,6 @@
 from firebase_admin import firestore
 from datetime import datetime, timedelta
+import time  # ✅ 실행 시간 측정을 위한 모듈 추가
 
 db = firestore.client()
 
@@ -37,7 +38,7 @@ def get_personality_data(personality_id: str):
     return personality_doc.to_dict()
 
 def save_message(chat_id: str, sender: str, content: str, is_response=False):
-    """Firestore에 메시지 저장 (timestamp 타입 유지)"""
+    """🔥 Firestore에 메시지 저장 (timestamp 타입 유지)"""
     messages_ref = db.collection("chats").document(chat_id).collection("messages")
 
     now = datetime.utcnow()  # ✅ Firestore의 timestamp 형식으로 저장
@@ -52,7 +53,11 @@ def save_message(chat_id: str, sender: str, content: str, is_response=False):
         "timestamp": now  # ✅ Firestore에서 자동으로 Timestamp 형식으로 저장됨!
     }
 
+    start_time = time.time()  # ✅ Firestore 저장 시작 시간
     messages_ref.add(message_data)
+    end_time = time.time()  # ✅ Firestore 저장 완료 시간
+
+    print(f"🔥 Firestore 메시지 저장 완료 ({chat_id}): {end_time - start_time:.3f}초")  # ✅ 실행 시간 출력
     return message_data  # ✅ Firestore 저장 데이터 반환 (디버깅 및 검증 용이)
 
 def initialize_chat(user_id: str, charac_id: str, character_data: dict = None):
@@ -102,16 +107,21 @@ def get_user_nickname(user_id: str):
         return user_doc.to_dict().get("user_nickname", user_id)
     return user_id  # 기본값 반환
 
-def get_chat_messages(chat_id: str):
-    """Firestore에서 채팅 기록을 가져오는 함수 (AI & 사용자 구분 포함)"""
-    messages_ref = db.collection("chats").document(chat_id).collection("messages").order_by("timestamp")
+def get_recent_chat_messages(chat_id: str, limit_count=10):
+    """🔥 Firestore에서 최신 채팅 기록만 가져오도록 개선"""
+    messages_ref = (
+        db.collection("chats").document(chat_id).collection("messages")
+        .order_by("timestamp", direction=firestore.Query.DESCENDING)  # 🔥 최신 메시지 먼저 가져오기
+        .limit(limit_count)  # 🔥 최근 limit_count 개만 가져오기 (기본 10개)
+        .select(["content", "sender", "timestamp"])  # 🔥 필요한 필드만 선택하여 속도 최적화
+    )
     messages = messages_ref.stream()
 
     return [
         {
-            "content": msg.to_dict()["content"],
-            "sender": msg.to_dict()["sender"],  # ✅ AI인지 사용자 메시지인지 구분 추가
-            "timestamp": msg.to_dict()["timestamp"]
+            "content": msg.to_dict().get("content"),
+            "sender": msg.to_dict().get("sender"),
+            "timestamp": msg.to_dict().get("timestamp")
         }
         for msg in messages
     ]
