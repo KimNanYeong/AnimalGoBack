@@ -97,4 +97,3 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: str):
         if chat_id in active_connections:
             active_connections[chat_id].remove(websocket)
             if not active_connections[chat_id]:  # 채팅방에 연결된 클라이언트가 없으면 삭제
-                del active_connections[chat_id]

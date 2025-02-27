@@ -14,7 +14,9 @@ from datetime import datetime
 
 from datetime import datetime
 # FAISS 벡터 DB 관련 모듈 추가
-from db.faiss_db import ensure_faiss_directory, load_existing_faiss_indices
+from vectorstore.faiss_init import ensure_faiss_directory
+from vectorstore.faiss_storage import load_existing_faiss_indices
+
 
 # from routes import (
 #     chat_send_message_router, chat_history_router, chat_list_router, clear_chat_router,
