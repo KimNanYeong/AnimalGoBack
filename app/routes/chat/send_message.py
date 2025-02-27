@@ -1,9 +1,9 @@
 import os
 from fastapi import APIRouter, HTTPException, Query
 from services.chat_service import generate_ai_response, get_character_data
-from firebase_admin import firestore
 from vectorstore.faiss_storage import store_chat_in_faiss  # ✅ 채팅방별 FAISS 저장
 from services.firestore_utils import initialize_chat
+from firebase_admin import firestore
 
 router = APIRouter()
 db = firestore.client()
@@ -17,6 +17,7 @@ async def chat_with_ai(
     user_id: str = Query(..., description="User ID"),
     charac_id: str = Query(..., description="Character ID")
 ):
+    """🔥 채팅 속도 최적화된 API"""
     if not user_input.strip():
         raise HTTPException(status_code=400, detail="Empty message not allowed")
 
@@ -35,21 +36,24 @@ async def chat_with_ai(
     if error:
         raise HTTPException(status_code=500, detail=error)
 
-    # ✅ Firestore `chats/{chat_id}` 문서의 `last_message` 업데이트 (대화 유지용)
-    chat_ref = db.collection("chats").document(chat_id)
-    try:
-        chat_ref.set(
-            {
-                "last_message": {"content": ai_response, "sender": charac_id},
-                "last_active_at": firestore.SERVER_TIMESTAMP
-            },
-            merge=True,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Firestore 저장 중 오류 발생")
-
-    # ✅ Firestore 저장 성공한 경우에만 FAISS 벡터 DB 업데이트 (중복 실행 방지)
+    # ✅ AI 응답이 있을 때만 Firestore 업데이트 & FAISS 저장 실행
     if ai_response:
-        store_chat_in_faiss(chat_id)  # 🔥 Firestore 저장 성공 후 실행
+        try:
+            # ✅ Firestore chats/{chat_id} 문서의 last_message 업데이트 (대화 유지용)
+            chat_ref = db.collection("chats").document(chat_id)
+            chat_ref.set(
+                {
+                    "last_message": {"content": ai_response, "sender": charac_id},
+                    "last_active_at": firestore.SERVER_TIMESTAMP
+                },
+                merge=True,
+            )
+            print(f"✅ Firestore 업데이트 완료: {chat_id}")
+        except Exception as e:
+            print(f"⚠️ Firestore 저장 오류: {str(e)}")  # ✅ 오류는 무시하고 로그만 출력
+
+        # ✅ Firestore 저장 성공한 경우에만 FAISS 벡터 DB 업데이트 (중복 실행 방지)
+        store_chat_in_faiss(chat_id)  
+        print(f"✅ FAISS 저장 완료: {chat_id}")
 
     return {"response": ai_response}

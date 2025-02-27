@@ -1,5 +1,5 @@
 # ✅ FAISS 초기화 관련 함수 임포트
-from .faiss_init import get_faiss_index_path, ensure_faiss_directory, save_faiss_index, load_faiss_index
+from .faiss_init import get_faiss_index_path, ensure_faiss_directory, save_faiss_index
 
 # ✅ FAISS 검색 관련 함수 임포트
 from .faiss_search import search_similar_messages

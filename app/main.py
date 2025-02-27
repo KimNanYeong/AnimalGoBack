@@ -15,7 +15,6 @@ from datetime import datetime
 from datetime import datetime
 # FAISS 벡터 DB 관련 모듈 추가
 from vectorstore.faiss_init import ensure_faiss_directory
-from vectorstore.faiss_storage import load_existing_faiss_indices
 
 
 # from routes import (
@@ -37,6 +36,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 # personality 의존성 주입
 from util.PersonalityUtil import load_personality
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="google.cloud.firestore_v1.base_collection")
+
+import logging
+logging.getLogger("google.cloud.firestore").setLevel(logging.ERROR)  # Firestore 경고 숨김
+
 
 app = FastAPI()
 
@@ -62,9 +68,6 @@ app.add_middleware(LoggerMiddleware)
 
 # 서버 시작 시 FAISS 저장 디렉토리 자동 생성
 ensure_faiss_directory()
-
-# 서버 시작 시 기존 FAISS 인덱스 자동 로드
-load_existing_faiss_indices()
 
 # API 라우트 등록 (각 기능별 엔드포인트 연결)
 app.include_router(user_router)
