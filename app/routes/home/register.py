@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Form, Depends
 from firebase_admin import firestore
 from pydantic import BaseModel, Field
 from typing import Annotated
+import time
 
 router = APIRouter()
 db = firestore.client()
@@ -25,7 +26,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # 🔹 회원가입 API (폼 입력 지원)
 # ==========================
 @router.post("/register", tags=["Auth"], summary="회원가입", description="사용자가 회원가입을 수행하고 Firestore에 저장하는 API")
-def register_user(
+async def register_user(
     user_id: Annotated[str, Form(..., description="사용자 고유 ID (User's unique ID)")],
     password: Annotated[str, Form(..., description="사용자 비밀번호 (Password for authentication)")],
     confirm_password: Annotated[str, Form(..., description="비밀번호 확인 (Confirm password)")],
@@ -46,11 +47,11 @@ def register_user(
         user_ref = db.collection("users").document(user_id)
         if user_ref.get().exists:
             raise HTTPException(status_code=400, detail="User ID already exists")
-
+        
         # 비밀번호 해싱
         hashed_pw = hash_password(password)
 
-        # Firestore에 사용자 정보 저장
+        # # Firestore에 사용자 정보 저장
         user_ref.set({
             "user_nickname": user_nickname,
             "hashed_password": hashed_pw,
