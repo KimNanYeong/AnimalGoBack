@@ -6,8 +6,12 @@ from fastapi import WebSocket
 load_dotenv()
 import util.PersonalityUtil as PersonalityUtil
 import asyncio
+import util.AgentUtil as AgentUtil
 
 class VillageService:
+    def __init__(self):
+        self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
     async def get_character(self,user_id:str) -> list:
         # 1. 동물 불러오기
         characters = db.collection("characters").where(
@@ -168,3 +172,37 @@ class VillageService:
         #     current_agent = agent_2 if current_agent == agent_1 else agent_1
         #     # await asyncio.sleep(1)  # 대화 간격 조정 (옵션)
         # return None
+
+    # async def create_agent(self, character_list: list):
+    #     print("생성 시작")
+    #
+    #     AgentUtil.
+
+
+
+    def set_agent(self,agent_map:dict[str,Agent],manager):
+
+        task_list = []
+        agent_list = []
+        for key,agent in agent_map.items():
+            agent_list.append(agent)
+            task = Task(
+                description=f"0 과 255 사이의 랜던함 좌표 x, y를 구해주세요",
+                agent=agent,
+                expected_output=f"{key}_좌표 : ",
+            )
+            task_list.append(task)
+
+        crew = Crew(agents=agent_list, tasks=task_list, process="sequential",verbose=True)
+
+        crew.kickoff()
+
+        # task_list = []
+        # for agent in agent_list:
+        #     task = Task(
+        #         description=f"0 과 255 사이의 랜던함 좌표 x, y를 구해주세요",
+        #         agent=agent,
+        #         expected_output=f"좌표 : ",
+        #     )
+        #     task_list.append(task)
+
