@@ -17,27 +17,44 @@ async def send_character(character_id: str):
     :param character_id: 캐릭터 ID
     :return: 캐릭터 정보 반환
     """
-    # try:
-        # 캐릭터 정보를 가져오는 함수
+
     character_info = await imgserv.fetch_character_info(character_id)
-    workflow_json = await imgserv.json_update(character_info["animal_type"], character_info["appearance"], character_info["image_path"])
-    # workflow_json["character_id"] = character_id
+    profile_workflow = await imgserv.create_profile(character_info)
+
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": workflow_json})
-        # prompt_id = response.json()
-        # print(prompt_id)
+        response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": profile_workflow})
 
     if response.status_code == 200:
-        # response_data = response.json()
         prompt_id = response.json().get("prompt_id")
-        # if response.json()["prompt_id"]:
+
         if prompt_id:
-            asyncio.create_task(imgserv.get_image(prompt_id, character_id))
-            # background_tasks.add_task(asyncio.to_thread, imgserv.get_image, response.json()["prompt_id"], character_id)
-            print(response)
-        return {"status": "success", "message": "ComfyUI 서버 연결됨"}
-    else:
+            asyncio.create_task(imgserv.get_profile(prompt_id, character_info))
+            return {"status":"success","message":"이미지 생성 시작"}
+    else :
         return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
+
+    # comfyui 변경
+    # try:
+    #     # 캐릭터 정보를 가져오는 함수
+    # character_info = await imgserv.fetch_character_info(character_id)
+    # workflow_json = await imgserv.json_update(character_info["animal_type"], character_info["appearance"], character_info["image_path"])
+    # # workflow_json["character_id"] = character_id
+    # async with httpx.AsyncClient() as client:
+    #     response = await client.post(f"{COMFYUI_URL}/prompt", json = {"prompt": workflow_json})
+    #     # prompt_id = response.json()
+    #     # print(prompt_id)
+    #
+    # if response.status_code == 200:
+    #     # response_data = response.json()
+    #     prompt_id = response.json().get("prompt_id")
+    #     # if response.json()["prompt_id"]:
+    #     if prompt_id:
+    #         asyncio.create_task(imgserv.get_image(prompt_id, character_id))
+    #         # background_tasks.add_task(asyncio.to_thread, imgserv.get_image, response.json()["prompt_id"], character_id)
+    #         print(response)
+    #     return {"status": "success", "message": "ComfyUI 서버 연결됨"}
+    # else:
+    #     return {"status": "error", "message": f"ComfyUI 응답 코드: {response.status_code}"}
 
     # except Exception as e:
     #     raise HTTPException(status_code=404, detail=str(e))
