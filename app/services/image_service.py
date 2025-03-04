@@ -1,6 +1,9 @@
 import asyncio
 import os
 import json
+import uuid
+
+import httpx
 import requests
 import urllib.request
 import websocket
@@ -9,15 +12,22 @@ from PIL import Image
 import random
 from core.firebase import db
 import routes.home.character_api as home_charac
+import datetime
 
 COMFYUI_SERVER_URL = "127.0.0.1:8188"  # ComfyUI 서버 URL
 COMFYUI_WORKFLOW_PATH = r"app/db/comfyui_workflow.json"  # 워크플로우 JSON 파일 경로
+COMFYUI_PROFILE_WORKFLOW_PATH = r"app/db/profile_workflow.json"
 print(f"파일 경로 확인: {COMFYUI_WORKFLOW_PATH}")
 # DEFAULT_OUTPUT_FILENAME = "output/generated_image.png"  # 생성된 이미지 저장 경로
+BASE_STORAGE_FOLDER = "C:/animal-storage"
 
 def generate_random_seed():
     """64비트 정수 범위 내 랜덤 seed 생성"""
     return random.randint(0, 2**63 - 1)
+
+async def schedule_village_image_task(village_prompt_id: str, character_info: dict) -> None:
+    """마을 이미지 저장 작업을 비동기로 스케줄링합니다."""
+    await asyncio.create_task(save_village_image(village_prompt_id, character_info))
 
 async def fetch_character_info(charac_id: str) -> dict:
     """
@@ -38,7 +48,9 @@ async def fetch_character_info(charac_id: str) -> dict:
     return {
         "animal_type": data.get("animaltype"),
         "appearance": data.get("appearance"),
-        "image_path": data.get("original_path")
+        "image_path": data.get("original_path"),
+        "user_id" : data.get("user_id"),
+        "character_id" : charac_id,
     }
 
 async def json_update(animal_type: str, appearance: str, image_path: str):
@@ -128,7 +140,7 @@ async def get_image(prompt_id: str, character_id: str):
     await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
     
     print(f"Waiting for image data for prompt ID: {prompt_id}")
-    
+
     while True:
         # ws.recv()는 blocking 함수이므로 run_in_executor로 호출
         message = await loop.run_in_executor(None, ws.recv)
@@ -165,52 +177,174 @@ async def get_image(prompt_id: str, character_id: str):
     # WebSocket 종료도 blocking이므로 run_in_executor로 처리
     await loop.run_in_executor(None, ws.close)
 
-# async def get_image(prompt_id: str, character_id: str):
-#     # ComfyUI 서버에 요청을 보냅니다.
-#     ws = websocket.WebSocket()
-#     ws.connect(f"ws://{COMFYUI_SERVER_URL}/ws")
-    
-#     print(f"Waiting for image data for prompt ID: {prompt_id}")
-    
-#     while True:
-#         message = ws.recv()
-#         if isinstance(message, str):
-#             # text = message.decode('utf-8')
-#             data = json.loads(message)
-#             print(f"Received message: {data}")
-#             if data['type'] == 'executing':
-#                 if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
-#                     print("Execution completed")
-#                     break
-#             if data['type'] == 'status':
-#                 if data['data']['status']['exec_info']['queue_remaining'] == 0:
-#                     print("Execution completed")
-#                     break
-#         elif isinstance(message, bytes):
-#             img_io = io.BytesIO(message[8:])
-#             img = Image.open(img_io)
+async def create_profile(character_info:dict):
+    #프로필 워크플로우 읽기
+    print(f"character_info: {character_info}")
+    print(f"COMFYUI_PROFILE_WORKFLOW_PATH: {COMFYUI_PROFILE_WORKFLOW_PATH}")
+    with open (COMFYUI_PROFILE_WORKFLOW_PATH,'r') as file:
+        workflow_data = json.load(file)
 
-#             # 이미지 포맷(예: 'JPEG', 'PNG') 확인 후 소문자로 변환
-#             img_format = img.format.lower() if img.format else 'jpeg'
+    prompt = f"""
+    highly detailed,
+    chibi character, 
+    SD style, 
+    small body, 
+    big head, 
+    exaggerated expressions, 
+    {character_info["animal_type"]},
+    {character_info["appearance"]}, 
+    front-facing view, 
+    looking directly at viewe,
+    head centered
+    """
 
-#             # JPEG인 경우 RGB 모드로 변환 (필요한 경우)
-#             if img_format == 'jpeg' and img.mode != 'RGB':
-#                 img = img.convert('RGB')
+    #프롬프트 변경
+    if "6" in workflow_data and "inputs" in workflow_data["6"]:
+        workflow_data["6"]["inputs"]["text"] = prompt
+    else:
+        raise KeyError("JSON 데이터에 6번 노드가 없거나 inputs 필드가 없습니다.")
 
-#             # 메모리 내 새로운 BytesIO 객체에 이미지 저장
-#             output_io = io.BytesIO()
-#             img.save(output_io, format=img.format)
-#             # 파일 객체처럼 동작하도록 filename 속성 추가 (예: "character.jpeg")
-#             setattr(output_io, "filename", f"character.{img_format}")
+    #이미지 경로 변경
+    if "2" in workflow_data and "inputs" in workflow_data["2"]:
+        workflow_data["2"]["inputs"]["text"] = character_info["image_path"]
+    else:
+        raise KeyError("JSON 데이터에 2번 노드가 없가나 inputs 필드가 없습니다.")
 
-#             # 버퍼의 포인터를 처음으로 되돌림
-#             output_io.seek(0)
+    return workflow_data
 
-#             # 생성된 메모리 내 파일 객체를 업로드
-#             await home_charac.upload_character_image(character_id, output_io)
-#             # file_obj = io.BytesIO(message)
-#             # setattr(file_obj, "filename", "charter.jpg")
-#             # print("Received binary data (likely image)")
-#             # home_charac.upload_character_image(character_id, file_obj)
-    
-#     ws.close()
+async def get_profile(prompt_id:str, character_info:dict):
+    loop = asyncio.get_running_loop()
+    ws = await loop.run_in_executor(None, websocket.WebSocket)
+    await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
+
+    print(f"Waiting for image data for prompt ID: {prompt_id}")
+    try :
+        while True:
+            message = await loop.run_in_executor(None, ws.recv)
+
+            if isinstance(message, str):
+                data = json.loads(message)
+                print(f"Received message 11111: {data}")
+                if data['type'] == 'executing':
+                    if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
+                        print("Execution completed")
+                        break
+                    if data['type'] == "status":
+                        if data['data']['status']['exec_info']['queue_remaining'] == 0:
+                            print("Execution completed")
+                            break
+            elif isinstance(message, bytes):
+                img_io = io.BytesIO(message[8:])
+                img = Image.open(img_io)
+
+                img_format = img.format.lower() if img.format else 'jpeg'
+                if img_format == 'jpeg' and img.mode != 'RGB':
+                    img = img.convert('RGB')
+
+                output_io = io.BytesIO()
+                img.save(output_io, format=img.format)
+                setattr(output_io, "filename", f"character.{img_format}")
+                output_io.seek(0)
+
+
+
+                #사용자별 저장 폴더 경로 생성
+                user_id = character_info["user_id"]
+                user_folder = os.path.join(BASE_STORAGE_FOLDER,user_id,"characters")
+                os.makedirs(user_folder,exist_ok=True)
+
+                #고유 파일명 생성
+                file_extension = output_io.filename.split(".")[-1]
+                unique_filename = f"{uuid.uuid4()}.{file_extension}"
+                character_path = os.path.join(user_folder,unique_filename)
+                character_abs_path = os.path.abspath(character_path)
+                #파일 저장
+                with open(character_path, "wb") as buffer:
+                    buffer.write(output_io.read())
+
+                await loop.run_in_executor(None, ws.close)
+
+                # 빌리지 이미지 생성
+                character_info["character_path"] = character_path
+                workflow = await json_update(character_info["animal_type"],character_info["appearance"],character_abs_path)
+
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(f"http://{COMFYUI_SERVER_URL}/prompt",json={"prompt":workflow})
+
+                if response.status_code == 200:
+                    new_prompt_id = response.json().get("prompt_id")
+
+                    if prompt_id:
+                        await loop.run_in_executor(None, ws.close)
+                        asyncio.create_task(schedule_village_image_task(new_prompt_id,character_info))
+                break
+    except Exception as e:
+        print(e)
+    finally:
+        try:
+            await loop.run_in_executor(None, ws.close)
+        except Exception as e1:
+            print("ws.close()호출 중 예외 발생")
+
+async def save_village_image(prompt_id:str, character_info:dict):
+    loop = asyncio.get_running_loop()
+    ws = await loop.run_in_executor(None, websocket.WebSocket)
+    await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
+    try:
+        while True:
+            message = await loop.run_in_executor(None, ws.recv)
+
+            if isinstance(message, str):
+                data = json.loads(message)
+                print(f"Received message 22222: {data}")
+                if data['type'] == 'executing':
+                    if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
+                        print("Execution completed")
+                        break
+                    if data['type'] == "status":
+                        if data['data']['status']['exec_info']['queue_remaining'] == 0:
+                            print("Execution completed")
+                            break
+            elif isinstance(message, bytes):
+                img_io = io.BytesIO(message[8:])
+                img = Image.open(img_io)
+
+                img_format = img.format.lower() if img.format else 'jpeg'
+                if img_format == 'jpeg' and img.mode != 'RGB':
+                    img = img.convert('RGB')
+                output_io = io.BytesIO()
+                img.save(output_io, format=img.format)
+                setattr(output_io, "filename", f"character.{img_format}")
+                output_io.seek(0)
+
+                #사용자별 저장 폴더 경로 생성
+                user_id = character_info["user_id"]
+                user_folder = os.path.join(BASE_STORAGE_FOLDER,user_id,"characters")
+                os.makedirs(user_folder,exist_ok=True)
+
+                #고유 파일명 생성
+                file_extension = output_io.filename.split(".")[-1]
+                unique_filename = f"village_{uuid.uuid4()}.{file_extension}"
+                village_path = os.path.join(user_folder,unique_filename)
+
+                #파일 저장
+                with open(village_path, "wb") as buffer:
+                    buffer.write(output_io.read())
+
+                character_ref = db.collection("characters").document(character_info["character_id"])
+
+                character_ref.update({
+                    "character_path":character_info["character_path"],
+                    "village_path":village_path,
+                    "status" : "completed",
+                    "character_update_at" : datetime.datetime.now()
+                })
+
+                await loop.run_in_executor(None, ws.close)
+    except Exception as e:
+        print(e)
+    finally:
+        try:
+            await loop.run_in_executor(None, ws.close)
+        except Exception as e1:
+            print("ws.close()호출 중 예외 발생")
