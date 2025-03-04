@@ -147,7 +147,7 @@ async def get_image(prompt_id: str, character_id: str):
         
         if isinstance(message, str):
             data = json.loads(message)
-            print(f"Received message: {data}")
+            # print(f"Received message: {data}")
             if data['type'] == 'executing':
                 if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
                     print("Execution completed")
@@ -224,7 +224,7 @@ async def get_profile(prompt_id:str, character_info:dict):
 
             if isinstance(message, str):
                 data = json.loads(message)
-                print(f"Received message 11111: {data}")
+                # print(f"Received message 11111: {data}")
                 if data['type'] == 'executing':
                     if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
                         print("Execution completed")
@@ -245,8 +245,6 @@ async def get_profile(prompt_id:str, character_info:dict):
                 img.save(output_io, format=img.format)
                 setattr(output_io, "filename", f"character.{img_format}")
                 output_io.seek(0)
-
-
 
                 #사용자별 저장 폴더 경로 생성
                 user_id = character_info["user_id"]
@@ -296,7 +294,7 @@ async def save_village_image(prompt_id:str, character_info:dict):
 
             if isinstance(message, str):
                 data = json.loads(message)
-                print(f"Received message 22222: {data}")
+                # print(f"Received message 22222: {data}")
                 if data['type'] == 'executing':
                     if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
                         print("Execution completed")
