@@ -1,5 +1,6 @@
 from langchain.memory import ConversationBufferMemory, ConversationSummaryMemory
 import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 from dotenv import load_dotenv
 from services import get_recent_chat_messages
@@ -19,7 +20,11 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 # ✅ LangChain Memory 설정 (대화 기록)
 buffer_memory = ConversationBufferMemory(memory_key="chat_history")  # 최근 대화 저장
-summary_memory = ConversationSummaryMemory(llm=genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21"), memory_key="summary")
+summary_memory = ConversationSummaryMemory(
+    llm=ChatGoogleGenerativeAI(model="gemini-2.0-flash-thinking-exp-01-21"),
+    memory_key="summary",
+    return_messages=True
+)
 
 def sync_memory_from_firestore(chat_id, limit_count=10):
     """🔥 Firestore에서 가져온 최신 대화 기록을 LangChain Memory에 추가 (중복 방지)"""
