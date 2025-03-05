@@ -35,8 +35,15 @@ def get_chat_list(user_id):
         # ✅ last_message가 None일 경우 기본값 {}으로 설정
         last_message = chat_data.get("last_message", {}) or {}
 
-           # ✅ last_message 출력 확인
-        # print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
+         # ✅ 문자열인 경우 JSON으로 변환
+        if isinstance(last_message, str):
+            try:
+                last_message = json.loads(last_message)  # JSON 문자열 -> 딕셔너리 변환
+            except json.JSONDecodeError:
+                last_message = {"content": last_message}  # 변환 실패 시 문자열을 content에 넣음
+
+        # ✅ 디버깅 로그 추가
+        print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
 
         chat_list.append({
             "chat_id": chat_id,
