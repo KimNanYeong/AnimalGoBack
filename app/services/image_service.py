@@ -94,45 +94,6 @@ async def get_character(character_id:str):
     data = doc.to_dict()
     return data
 
-
-# def queue_prompt(prompt: Dict[str, Any]) -> Dict[str, Any]:
-#     """
-#     ComfyUI 서버에 프롬프트(워크플로우) 데이터를 전송하여 큐잉합니다.
-#     """
-#     # (서버와 통신하는 코드 필요, 여기에 추가)
-#     return {"prompt_id": "dummy_prompt_id"}  # 테스트용 리턴 값
-
-# def get_image(prompt_id: str) -> Image.Image:
-#     """
-#     WebSocket을 통해 이미지 바이너리를 받아와 Pillow Image 객체로 변환합니다.
-#     """
-#     # (서버와 통신하는 코드 필요, 여기에 추가)
-#     return None  # 테스트용 리턴 값
-
-# def generate_image(workflow_data: Dict[str, Any]) -> str:
-#     """
-#     ComfyUI 서버에 워크플로우 데이터를 전송하여 이미지를 생성하는 함수
-#     """
-#     try:
-#         # ComfyUI 서버와 통신해 프롬프트 큐잉
-#         prompt_id = queue_prompt(COMFYUI_SERVER_URL, workflow_data).get("prompt_id")
-#         if not prompt_id:
-#             raise RuntimeError("Prompt ID를 가져오지 못했습니다.")
-
-#         # WebSocket을 통해 이미지 수신
-#         result_image = get_image(COMFYUI_SERVER_URL, prompt_id)
-        
-#         if result_image:
-#             os.makedirs(os.path.dirname(DEFAULT_OUTPUT_FILENAME), exist_ok=True)
-#             result_image.save(DEFAULT_OUTPUT_FILENAME)
-#             return DEFAULT_OUTPUT_FILENAME
-#         else:
-#             return ""
-    
-#     except Exception as e:
-#         print(f"[generate_image] 에러 발생: {e}")
-#         return ""
-
 async def get_image(prompt_id: str, character_id: str):
     loop = asyncio.get_running_loop()
     # blocking한 WebSocket 객체 생성 및 연결은 별도 스레드에서 실행
@@ -212,137 +173,133 @@ async def create_profile(character_info:dict):
 
     return workflow_data
 
-async def get_profile(prompt_id:str, character_info:dict):
+async def get_profile(prompt_id: str, character_info: dict):
+    # 현재 이벤트 루프를 가져옴
     loop = asyncio.get_running_loop()
+    # 별도의 스레드에서 동기 WebSocket 객체를 생성
     ws = await loop.run_in_executor(None, websocket.WebSocket)
+    # 별도의 스레드에서 WebSocket 서버에 연결
     await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
-
     print(f"Waiting for image data for prompt ID: {prompt_id}")
-    try :
-        while True:
-            message = await loop.run_in_executor(None, ws.recv)
 
+    try:
+        # WebSocket 메시지를 수신하기 위한 무한 루프
+        while True:
+            # 별도의 스레드에서 동기 ws.recv() 함수를 호출하여 메시지를 수신
+            message = await loop.run_in_executor(None, ws.recv)
             if isinstance(message, str):
+                # 문자열 메시지인 경우 JSON 파싱 후 데이터 추출
                 data = json.loads(message)
-                # print(f"Received message 11111: {data}")
+                print(f"Received message: {data}")
+                # 메시지 타입이 'executing'일 때 작업 완료 조건 확인
                 if data['type'] == 'executing':
                     if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
                         print("Execution completed")
                         break
+                    # 참고: 'status' 타입 조건은 실제로 'executing' 타입 하위 조건과 중복될 수 있음
                     if data['type'] == "status":
                         if data['data']['status']['exec_info']['queue_remaining'] == 0:
                             print("Execution completed")
                             break
             elif isinstance(message, bytes):
-                img_io = io.BytesIO(message[8:])
-                img = Image.open(img_io)
-
+                # 바이트 메시지인 경우, 이미지 데이터 처리
+                img_io = io.BytesIO(message[8:])  # 앞 8바이트는 메타 데이터라고 가정하고 제외
+                img = Image.open(img_io)  # 이미지 열기
+                # 이미지 포맷 및 색상 모드 확인 (JPEG인 경우 RGB로 변환 필요)
                 img_format = img.format.lower() if img.format else 'jpeg'
                 if img_format == 'jpeg' and img.mode != 'RGB':
                     img = img.convert('RGB')
-
-                output_io = io.BytesIO()
-                img.save(output_io, format=img.format)
+                output_io = io.BytesIO()  # 이미지 데이터를 저장할 BytesIO 객체 생성
+                img.save(output_io, format=img.format)  # 이미지 저장
+                # BytesIO 객체에 파일 이름 속성 설정 (비표준 방식)
                 setattr(output_io, "filename", f"character.{img_format}")
-                output_io.seek(0)
+                output_io.seek(0)  # 파일 포인터를 처음으로 되돌림
 
-                #사용자별 저장 폴더 경로 생성
+                # 사용자별 저장 폴더 경로 구성
                 user_id = character_info["user_id"]
-                user_folder = os.path.join(BASE_STORAGE_FOLDER,user_id,"characters")
-                os.makedirs(user_folder,exist_ok=True)
+                user_folder = os.path.join(BASE_STORAGE_FOLDER, user_id, "characters")
+                os.makedirs(user_folder, exist_ok=True)  # 폴더가 없으면 생성
 
-                #고유 파일명 생성
+                # 고유 파일명 생성
                 file_extension = output_io.filename.split(".")[-1]
                 unique_filename = f"{uuid.uuid4()}.{file_extension}"
-                character_path = os.path.join(user_folder,unique_filename)
-                character_abs_path = os.path.abspath(character_path)
-                #파일 저장
+                character_path = os.path.join(user_folder, unique_filename)
+                character_abs_path = os.path.abspath(character_path)  # 절대 경로 구하기
+
+                # 파일에 이미지 데이터 저장
                 with open(character_path, "wb") as buffer:
                     buffer.write(output_io.read())
-
+                # 별도의 스레드에서 WebSocket 연결 종료
                 await loop.run_in_executor(None, ws.close)
 
-                # 빌리지 이미지 생성
+                # 캐릭터 정보에 생성된 캐릭터 이미지 경로 업데이트
                 character_info["character_path"] = character_path
-                workflow = await json_update(character_info["animal_type"],character_info["appearance"],character_abs_path)
-
+                # 워크플로우 JSON 데이터를 업데이트하기 위한 비동기 호출
+                workflow = await json_update(character_info["animal_type"],
+                                             character_info["appearance"],
+                                             character_abs_path)
+                # httpx.AsyncClient를 사용하여 ComfyUI 서버에 POST 요청 전송
                 async with httpx.AsyncClient() as client:
-                    response = await client.post(f"http://{COMFYUI_SERVER_URL}/prompt",json={"prompt":workflow})
-
+                    response = await client.post(f"http://{COMFYUI_SERVER_URL}/prompt",
+                                                 json={"prompt": workflow})
                 if response.status_code == 200:
+                    # 새로운 프롬프트 ID 추출
                     new_prompt_id = response.json().get("prompt_id")
+                    # (주석 처리된 스케줄링 함수 호출; 필요 시 사용)
+                    # if prompt_id:
+                    #     asyncio.create_task(schedule_village_image_task(new_prompt_id, character_info))
 
-                    if prompt_id:
-                        await loop.run_in_executor(None, ws.close)
-                        asyncio.create_task(schedule_village_image_task(new_prompt_id,character_info))
-                break
+                    # 빌리지 이미지 수신 처리를 위한 내부 반복문
+                    while True:
+                        if isinstance(message, str):
+                            data = json.loads(message)
+                            print(f"Received message: {data}")
+                            # 빌리지 이미지 생성 후 작업 완료 조건 확인
+                            if data['type'] == 'executing':
+                                if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
+                                    print("Execution completed")
+                                    break
+                                if data['type'] == "status":
+                                    if data['data']['status']['exec_info']['queue_remaining'] == 0:
+                                        print("Execution completed")
+                                        break
+                        elif isinstance(message, bytes):
+                            # 빌리지 이미지 데이터 처리
+                            img_io = io.BytesIO(message[8:])
+                            img = Image.open(img_io)
+                            img_format = img.format.lower() if img.format else 'jpeg'
+                            if img_format == 'jpeg' and img.mode != 'RGB':
+                                img = img.convert('RGB')
+                            output_io = io.BytesIO()
+                            img.save(output_io, format=img.format)
+                            setattr(output_io, "filename", f"character.{img_format}")
+                            output_io.seek(0)
+                            # 사용자별 저장 폴더 재구성
+                            user_id = character_info["user_id"]
+                            user_folder = os.path.join(BASE_STORAGE_FOLDER, user_id, "characters")
+                            os.makedirs(user_folder, exist_ok=True)
+                            # 빌리지 이미지용 고유 파일명 생성
+                            file_extension = output_io.filename.split(".")[-1]
+                            unique_filename = f"village_{uuid.uuid4()}.{file_extension}"
+                            village_path = os.path.join(user_folder, unique_filename)
+                            # 빌리지 이미지 데이터를 파일로 저장
+                            with open(village_path, "wb") as buffer:
+                                buffer.write(output_io.read())
+                            # 데이터베이스에서 캐릭터 문서를 찾아 업데이트
+                            character_ref = db.collection("characters").document(character_info["character_id"])
+                            character_ref.update({
+                                "character_path": character_info["character_path"],
+                                "village_path": village_path,
+                                "status": "completed",
+                                "character_update_at": datetime.datetime.now()
+                            })
+                    break  # 외부 while 루프 종료
     except Exception as e:
+        # 예외 발생 시 에러 메시지 출력
         print(e)
     finally:
         try:
-            await loop.run_in_executor(None, ws.close)
-        except Exception as e1:
-            print("ws.close()호출 중 예외 발생")
-
-async def save_village_image(prompt_id:str, character_info:dict):
-    loop = asyncio.get_running_loop()
-    ws = await loop.run_in_executor(None, websocket.WebSocket)
-    await loop.run_in_executor(None, ws.connect, f"ws://{COMFYUI_SERVER_URL}/ws")
-    try:
-        while True:
-            message = await loop.run_in_executor(None, ws.recv)
-
-            if isinstance(message, str):
-                data = json.loads(message)
-                # print(f"Received message 22222: {data}")
-                if data['type'] == 'executing':
-                    if data['data']['node'] is None and data['data']['prompt_id'] == prompt_id:
-                        print("Execution completed")
-                        break
-                    if data['type'] == "status":
-                        if data['data']['status']['exec_info']['queue_remaining'] == 0:
-                            print("Execution completed")
-                            break
-            elif isinstance(message, bytes):
-                img_io = io.BytesIO(message[8:])
-                img = Image.open(img_io)
-
-                img_format = img.format.lower() if img.format else 'jpeg'
-                if img_format == 'jpeg' and img.mode != 'RGB':
-                    img = img.convert('RGB')
-                output_io = io.BytesIO()
-                img.save(output_io, format=img.format)
-                setattr(output_io, "filename", f"character.{img_format}")
-                output_io.seek(0)
-
-                #사용자별 저장 폴더 경로 생성
-                user_id = character_info["user_id"]
-                user_folder = os.path.join(BASE_STORAGE_FOLDER,user_id,"characters")
-                os.makedirs(user_folder,exist_ok=True)
-
-                #고유 파일명 생성
-                file_extension = output_io.filename.split(".")[-1]
-                unique_filename = f"village_{uuid.uuid4()}.{file_extension}"
-                village_path = os.path.join(user_folder,unique_filename)
-
-                #파일 저장
-                with open(village_path, "wb") as buffer:
-                    buffer.write(output_io.read())
-
-                character_ref = db.collection("characters").document(character_info["character_id"])
-
-                character_ref.update({
-                    "character_path":character_info["character_path"],
-                    "village_path":village_path,
-                    "status" : "completed",
-                    "character_update_at" : datetime.datetime.now()
-                })
-
-                await loop.run_in_executor(None, ws.close)
-    except Exception as e:
-        print(e)
-    finally:
-        try:
+            # 작업 완료 후 WebSocket을 종료
             await loop.run_in_executor(None, ws.close)
         except Exception as e1:
             print("ws.close()호출 중 예외 발생")
