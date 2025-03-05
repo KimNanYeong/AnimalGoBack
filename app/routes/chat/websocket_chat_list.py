@@ -7,6 +7,8 @@ from datetime import datetime
 router = APIRouter()
 db = firestore.client()
 active_connections = {}
+# asyncio의 이벤트 루프를 저장할 변수 추가
+event_loop = asyncio.get_event_loop()
 
 def convert_timestamp(timestamp):
     """Firestore Timestamp -> ISO 8601 문자열 변환"""
@@ -33,8 +35,15 @@ def get_chat_list(user_id):
         # ✅ last_message가 None일 경우 기본값 {}으로 설정
         last_message = chat_data.get("last_message", {}) or {}
 
-           # ✅ last_message 출력 확인
-        # print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
+         # ✅ 문자열인 경우 JSON으로 변환
+        if isinstance(last_message, str):
+            try:
+                last_message = json.loads(last_message)  # JSON 문자열 -> 딕셔너리 변환
+            except json.JSONDecodeError:
+                last_message = {"content": last_message}  # 변환 실패 시 문자열을 content에 넣음
+
+        # ✅ 디버깅 로그 추가
+        print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
 
         chat_list.append({
             "chat_id": chat_id,
@@ -73,12 +82,12 @@ async def websocket_chat_list(websocket: WebSocket, user_id: str):
             async def send_update():
                 for conn in active_connections.get(user_id, []):
                     try:
-                        await conn.send_text(json.dumps({"chats": updated_chat_list}))  # ✅ JSON 직렬화 가능
+                        await conn.send_text(json.dumps({"chats": updated_chat_list}))
                     except Exception:
                         pass
 
-            # asyncio.create_task() 대신 await을 직접 사용하여 비동기 처리
-            asyncio.ensure_future(send_update())  # ✅ 안전하게 비동기 실행
+            # ✅ 이벤트 루프가 없는 경우에도 안전하게 실행
+            asyncio.run_coroutine_threadsafe(send_update(), event_loop)
 
         # ✅ Firestore 실시간 리스너 등록
         query_watch = db.collection("chats") \

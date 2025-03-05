@@ -135,8 +135,9 @@ async def create_chatroom_between_characters(
         if not char_b_doc.exists:
             raise HTTPException(status_code=404, detail=f"Character ID {character_id_b} not found")
 
-        # 🔹 채팅방 ID 생성 (형식: {A 캐릭터_id}-{B 캐릭터_id})
-        chat_room_id = f"{character_id_a}_{character_id_b}"
+        # 🔹 알파벳 순서로 캐릭터 ID 정렬 후 채팅방 ID 생성 (형식: {첫번째 캐릭터_id}_{두번째 캐릭터_id})
+        sorted_ids = sorted([character_id_a, character_id_b])
+        chat_room_id = f"{sorted_ids[0]}_{sorted_ids[1]}"
 
         # 🔹 채팅방 문서 참조 생성 및 존재 여부 확인
         chat_ref = db.collection("chats").document(chat_room_id)
@@ -201,7 +202,7 @@ async def get_user_characters(
             character_id = doc.id
 
             #닉네임 없는 경우 미출력 추가 박건희
-            if character_data.get("nickname"):
+            if character_data.get("nickname") is None:
                 continue
 
             # 🔹 이미지 URL 생성 (기본 경로 포함)

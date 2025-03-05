@@ -3,6 +3,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, BackgroundTasks
 from typing import List
 from core.firebase import db
 from services.VillageService import VillageService
+from app.services.affinity import AffinityService
 import json
 import asyncio
 import util.AgentUtil as AgentUtil
@@ -38,8 +39,10 @@ async def websocket_endpoint(websocket: WebSocket,user_id:str):
             # data_dict = json.loads(data)
             # character_list = data_dict['characters']
             # relationship = await VillageService.get_relationship(character_list)
-            # VillageService.create_message(websocket, character_list, relationship)
-
+            # service.create_message(websocket, character_list, relationship)
+                # await manager.broadcast(f"Message: {chat_message}")
+            # result = await VillageService.create_message(data_dict)
+            
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await AgentUtil.destroy_agent(user_id)
@@ -80,3 +83,28 @@ async def get_characters(user_id:str, background_tasks:BackgroundTasks):
     #             print(e)
     #             await asyncio.sleep(10)
 
+
+affinity_service = AffinityService()
+
+AFFINITY_CHANGE = {
+    "feeding": 5,    # 선물 주면 친밀도 +10
+    "ignore": -5   # 싸우면 친밀도 -15
+}
+
+@router.post("/village/action/{character_id}/{action}", tags=["village"])
+async def village_action(character_id: str, action: str):
+    """
+    빌리지에서 특정 행동을 하면 친밀도를 업데이트
+    """
+    if action not in AFFINITY_CHANGE:
+        return {"result": False, "message": "Invalid action"}
+
+    change = AFFINITY_CHANGE[action]
+    return await affinity_service.update_affinity(character_id, change)
+
+@router.get("/village/get_affinity/{character_id}", tags=["village"])
+async def get_affinity(character_id: str):
+    """
+    특정 캐릭터의 친밀도 조회
+    """
+    return await affinity_service.get_affinity(character_id)

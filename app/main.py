@@ -84,6 +84,7 @@ app.include_router(login_router, prefix="/home")
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
 
+app.include_router(chat_basic_router, prefix="/home")
 # ✅ WebSocket 라우트 등록
 app.include_router(websocket_router)
 app.include_router(websocket_chat_list_router, prefix="/chat")
@@ -106,4 +107,4 @@ async def init():
 
 # FastAPI 실행 (로컬 환경에서 직접 실행할 경우)
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=7000)
