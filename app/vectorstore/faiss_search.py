@@ -19,6 +19,14 @@ def search_similar_messages(chat_id, query, top_k=5):
     query_vector = np.array([query_vector], dtype=np.float32)
     faiss.normalize_L2(query_vector)
 
+    # ✅ 디버깅 로그 추가
+    print(f"[DEBUG] FAISS 인덱스 차원: {index.d}")
+    print(f"[DEBUG] 입력 벡터 차원: {query_vector.shape[1]}")
+
+    if query_vector.shape[1] != index.d:
+        raise ValueError(f"FAISS 인덱스 차원({index.d})과 입력 벡터 차원({query_vector.shape[1]})이 다릅니다!")
+
+
     scores, indices = index.search(query_vector, min(top_k, index.ntotal))
 
     # 🔥 Firestore에서 필요한 문서 ID만 가져오기

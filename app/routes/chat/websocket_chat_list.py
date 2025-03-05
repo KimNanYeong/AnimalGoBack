@@ -43,7 +43,7 @@ def get_chat_list(user_id):
                 last_message = {"content": last_message}  # 변환 실패 시 문자열을 content에 넣음
 
         # ✅ 디버깅 로그 추가
-        print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
+        #print(f"[DEBUG] chat_id: {chat_id}, last_message: {last_message}")
 
         chat_list.append({
             "chat_id": chat_id,

@@ -114,7 +114,7 @@ def sync_memory_from_firestore_on_start(chat_id, limit_count=50):
 
     for message in reversed(chat_history):
         if message["sender"] == "AI":
-            buffer_memory.save_context({"input": "", "output": message["content"]})
+            buffer_memory.save_context({"input": ""}, {"output": message["content"]})
         else:
             buffer_memory.save_context({"input": message["content"]}, {"output": ""})
 

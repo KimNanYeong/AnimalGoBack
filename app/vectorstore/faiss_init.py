@@ -10,6 +10,7 @@ from sentence_transformers import SentenceTransformer
 FAISS_INDEX_DIR = "db/faiss"
 dimension = 768
 
+
 # ✅ FAISS 인덱스 캐싱 (서버 시작 시 미리 로드하지 않음)
 existing_indices = {}
 
@@ -40,10 +41,11 @@ def get_faiss_index(chat_id):
         print(f"✅ 기존 FAISS 인덱스 로드 완료: {index_path}")
     else:
         print(f"⚠️ FAISS 인덱스 없음. 새로 생성: {index_path}")
-        index = faiss.IndexFlatL2(dimension)  # 🔥 새로운 빈 FAISS 인덱스 생성
+        index = faiss.IndexFlatL2(dimension)  # ✅ 768 차원 FAISS 인덱스 생성
 
     existing_indices[chat_id] = index  # ✅ 캐싱하여 불필요한 로드 방지
     return index
+
 
 # ✅ SentenceTransformer 모델 캐싱 (서버 시작 시 한 번만 로드)
 global_model = None
