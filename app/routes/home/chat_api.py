@@ -46,24 +46,29 @@ async def start_ai_conversation(
     #result = start_conversation(charac_1, charac_2)  # streamin 구조로 대체 
     return StreamingResponse(start_conversation(charac_1, charac_2), media_type="text/event-stream")
 
-# Pydantic 모델 정의
-class ChatRoom(BaseModel):
-    chat_id: str
-    create_at: str
-    last_active_at: str
-    last_message: str
 
 # ==================================================
 # 특정 user_id가 보유한 캐릭터들의 채팅방 리스트 API
 # ==================================================
+# 응답 모델 정의
+class LastMessage(BaseModel):
+    content: str
+    sender: str
+
+class ChatRoom(BaseModel):
+    chat_id: str
+    create_at: str
+    last_active_at: str
+    last_message: LastMessage  # 딕셔너리 형태로 정의
+
 @router.get("/users/{user_id}/chats", response_model=List[ChatRoom],
     summary="AI 캐릭터 대화방 리스트",
     tags=["Basic"],
     description="""
     대화방 리스트
     """)
-def get_user_chatrooms(user_id: str):
-    # chats 컬렉션에서 해당 user_id가 만든 채팅방만 조회
+
+def get_user_chatrooms(user_id: str) -> List[ChatRoom]:
     chats_ref = db.collection("chats")
     query = chats_ref.where("user_id", "==", user_id).stream()
 
@@ -72,22 +77,23 @@ def get_user_chatrooms(user_id: str):
         data = doc.to_dict()
         participants = data.get("participants", [])
 
-        # 1) participants가 2명인지 확인
         if len(participants) != 2:
             continue
 
-        # 2) last_message가 존재하는지 확인
         last_message = data.get("last_message")
-        if not last_message:
-            continue
+        if not last_message or not isinstance(last_message, dict):
+            continue  # last_message가 없거나 딕셔너리가 아니면 건너뜀
 
-        # 필수 필드가 모두 존재하는지 확인
+        # last_message가 문자열일 경우 처리
+        if isinstance(last_message, str):
+            last_message = {"content": last_message, "sender": "unknown"}
+
         if all(key in data for key in ["create_at", "last_active_at"]):
             chatroom_list.append({
                 "chat_id": doc.id,
                 "create_at": data["create_at"].isoformat(),
                 "last_active_at": data["last_active_at"].isoformat(),
-                "last_message": last_message
+                "last_message": last_message  # 수정된 부분
             })
 
     if not chatroom_list:
@@ -95,15 +101,17 @@ def get_user_chatrooms(user_id: str):
 
     return chatroom_list
 
+
+# ====================================
+# 두 캐릭터 채팅방의 대화 내용 조회 API
+# ====================================
+
 # Pydantic 모델 정의
 class Message(BaseModel):
     sender: str
     content: str
     timestamp: str
 
-# ====================================
-# 두 캐릭터 채팅방의 대화 내용 조회 API
-# ====================================
 @router.get("/chats/{chat_id}/messages", response_model=List[Message],
     summary="두 캐릭터 AI 대화 내용",
     tags=["Basic"],
