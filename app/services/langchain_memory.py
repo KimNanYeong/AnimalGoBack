@@ -1,4 +1,4 @@
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationBufferMemory, ConversationSummaryMemory
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
@@ -19,10 +19,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 # ✅ LangChain Memory 설정 (대화 기록)
 buffer_memory = ConversationBufferMemory(memory_key="chat_history")  # 최근 대화 저장
-
-# ✅ 전역 변수로 요약 관리
-conversation_summary = ""
-
+summary_memory = ConversationSummaryMemory(llm=genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21"), memory_key="summary")
 
 def sync_memory_from_firestore(chat_id, limit_count=10):
     """🔥 Firestore에서 가져온 최신 대화 기록을 LangChain Memory에 추가 (중복 방지)"""
@@ -44,8 +41,7 @@ def sync_memory_from_faiss(chat_id, user_input):
 
 
 def add_message_to_memory(user_message: str, ai_response: str):
-    """🔥 LangChain Memory에 사용자와 AI의 대화를 추가 + 요약 업데이트"""
-    global conversation_summary
+    """🔥 LangChain Memory에 사용자와 AI의 대화를 추가 + SummaryMemory도 업데이트"""
     start_time = time.time()
 
     conversation_history = get_conversation_history()
@@ -55,10 +51,11 @@ def add_message_to_memory(user_message: str, ai_response: str):
         print(f"⚠️ `add_message_to_memory()` 중복 실행 방지: {ai_response}")
         return
 
+    # ✅ BufferMemory에 대화 추가
     buffer_memory.save_context({"input": user_message}, {"output": ai_response})
 
-    # ✅ 새로운 정보를 요약
-    conversation_summary = generate_summary(user_message, ai_response, conversation_summary)
+    # ✅ SummaryMemory에도 대화 추가 (자동 요약)
+    summary_memory.save_context({"input": user_message}, {"output": ai_response})
 
     end_time = time.time()
     print(f"🔥 `add_message_to_memory()` 실행 시간: {end_time - start_time:.3f}초")
@@ -68,6 +65,9 @@ def generate_response(user_input: str, chat_id: str) -> str:
     """🔥 LangChain Memory + FAISS를 활용한 AI 응답 생성"""
     sync_memory_from_firestore(chat_id)
     sync_memory_from_faiss(chat_id, user_input)
+
+    # ✅ SummaryMemory에서 대화 요약 가져오기
+    conversation_summary = get_conversation_summary()
 
     full_input = f"{conversation_summary}\n\n[사용자]: {user_input}"
 
@@ -82,29 +82,21 @@ def generate_response(user_input: str, chat_id: str) -> str:
 
     ai_response = response.text.strip()
 
-    # ✅ Memory에 대화 추가
+    # ✅ Memory에 대화 추가 (SummaryMemory도 함께 업데이트됨)
     add_message_to_memory(user_input, ai_response)
 
     return ai_response
 
 
-def get_conversation_history():
-    """🔥 LangChain Memory에서 최근 대화 기록 가져오기"""
-    history = buffer_memory.load_memory_variables({}).get("chat_history", "")
-    return history[-200:]
+def get_conversation_history(limit_count=5):
+    """🔥 LangChain Memory에서 최근 N개의 대화 기록 가져오기"""
+    history = buffer_memory.load_memory_variables({}).get("chat_history", [])
+    return history[-limit_count:]  # ✅ 최근 5개 대화만 반환
 
 
-def generate_summary(user_message: str, ai_response: str, current_summary: str = "") -> str:
-    """🔥 Gemini API를 사용해 대화 요약 생성"""
-    full_input = f"{current_summary}\n[사용자]: {user_message}\n[AI]: {ai_response}"
-
-    model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-01-21")
-    response = model.generate_content([full_input])
-
-    if not response.text:
-        return current_summary  # 응답이 없으면 기존 요약 유지
-
-    return response.text.strip()
+def get_conversation_summary():
+    """🔥 LangChain SummaryMemory에서 대화 요약 가져오기"""
+    return summary_memory.load_memory_variables({}).get("summary", "")
 
 
 def sync_memory_from_firestore_on_start(chat_id, limit_count=50):
@@ -112,13 +104,17 @@ def sync_memory_from_firestore_on_start(chat_id, limit_count=50):
     chat_history = get_recent_chat_messages(chat_id, limit_count)
     print(f"🔥 Firestore에서 `{chat_id}` 최근 {limit_count}개 대화 불러오기 완료!")
 
-    for message in reversed(chat_history):
-        if message["sender"] == "AI":
-            buffer_memory.save_context({"input": ""}, {"output": message["content"]})
-        else:
-            buffer_memory.save_context({"input": message["content"]}, {"output": ""})
+    # ✅ 기존 메모리에 있는 대화 확인 (중복 방지)
+    existing_memory = get_conversation_history()
+    seen_texts = set(existing_memory)
 
-def get_conversation_summary():
-    """🔥 LangChain Memory에서 대화 요약을 가져오기"""
-    global conversation_summary  # ✅ 전역 변수 사용
-    return conversation_summary[-500:] if len(conversation_summary) > 500 else conversation_summary
+    for message in reversed(chat_history):
+        if message["content"] not in seen_texts:
+            if message["sender"] == "AI":
+                buffer_memory.save_context({"input": ""}, {"output": message["content"]})
+                summary_memory.save_context({"input": ""}, {"output": message["content"]})
+            else:
+                buffer_memory.save_context({"input": message["content"]}, {"output": ""})
+                summary_memory.save_context({"input": message["content"]}, {"output": ""})
+
+            seen_texts.add(message["content"])  # ✅ 중복 방지 처리

@@ -39,10 +39,9 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
 
     retrieved_context = get_similar_messages(chat_id, user_input, top_k=3)  # FAISS 검색
     memory_history = get_conversation_history()  # LangChain Memory에서 최근 대화 가져오기
-    conversation_summary = get_conversation_summary()  # 요약된 대화 내용 가져오기
+    conversation_summary = get_conversation_summary()  # ✅ SummaryMemory에서 최신 요약 가져오기
 
     # ✅ AI 응답 생성
-
     ai_response = generate_response(
         generate_prompt(
             animaltype=character_data["animaltype"],
@@ -53,12 +52,11 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
             emoji_style=personality_data.get("emoji_style", ""),
             prompt_template=personality_data.get("prompt_template", "나는 친절한 말투로 대답할게!"),
             user_nickname=user_nickname,
-            retrieved_context=f"{retrieved_context}\n\n{memory_history[-200:]}\n\n{conversation_summary[-200:]}",  # ✅ LangChain Memory & FAISS 결과 반영
+            retrieved_context=f"{conversation_summary}\n\n{retrieved_context}\n\n{memory_history[-200:]}",
             user_input=user_input
         ),
         chat_id
     )
-
 
     cleaned_response = clean_ai_response(ai_response)
 
