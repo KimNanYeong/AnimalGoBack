@@ -3,6 +3,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, BackgroundTasks
 from typing import List
 from core.firebase import db
 from services.VillageService import VillageService
+from app.services.affinity import AffinityService
 import json
 import asyncio
 
@@ -70,3 +71,28 @@ async def crew_ai_task(character_list: List):
         print(result)
         await manager.broadcast(json.dumps(result))
         await asyncio.sleep(2)  # 주기적으로 업데이트 (예: 2초 간격)
+
+affinity_service = AffinityService()
+
+AFFINITY_CHANGE = {
+    "feeding": 5,    # 선물 주면 친밀도 +10
+    "ignore": -5   # 싸우면 친밀도 -15
+}
+
+@router.post("/village/action/{character_id}/{action}", tags=["village"])
+async def village_action(character_id: str, action: str):
+    """
+    빌리지에서 특정 행동을 하면 친밀도를 업데이트
+    """
+    if action not in AFFINITY_CHANGE:
+        return {"result": False, "message": "Invalid action"}
+
+    change = AFFINITY_CHANGE[action]
+    return await affinity_service.update_affinity(character_id, change)
+
+@router.get("/village/get_affinity/{character_id}", tags=["village"])
+async def get_affinity(character_id: str):
+    """
+    특정 캐릭터의 친밀도 조회
+    """
+    return await affinity_service.get_affinity(character_id)
