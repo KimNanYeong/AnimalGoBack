@@ -3,6 +3,7 @@ from vectorstore.faiss_utils import get_similar_messages  # ✅ FAISS 검색 올
 from services import generate_prompt, sync_memory_from_firestore_on_start
 from services import generate_response, add_message_to_memory, get_conversation_history, get_conversation_summary, sync_memory_from_firestore, sync_memory_from_faiss
 from firebase_admin import firestore
+import re
 
 db = firestore.client()
 
@@ -10,8 +11,10 @@ db = firestore.client()
 cached_character_data = {}
 
 def clean_ai_response(response: str) -> str:
-    """🔥 AI 응답에서 불필요한 텍스트 제거"""
-    return response.replace("AI: ", "").strip()
+    """🔥 AI 응답에서 '[AI]:', 'AI: ', '\nAI:' 등 불필요한 텍스트 제거"""
+    response = re.sub(r"^\s*\[?AI\]?:?\s*", "", response)  # 앞부분의 `[AI]:`, `AI:` 제거
+    return response.strip()
+
 
 def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     """🔥 Firestore 저장을 `generate_ai_response()`에서 직접 실행하여 최적화"""
@@ -34,7 +37,12 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
     # ✅ Firestore에 사용자 메시지 저장 (AI 응답 생성 전에 실행)
     save_message(chat_id, user_id, user_input, is_response=False)
 
+    retrieved_context = get_similar_messages(chat_id, user_input, top_k=3)  # FAISS 검색
+    memory_history = get_conversation_history()  # LangChain Memory에서 최근 대화 가져오기
+    conversation_summary = get_conversation_summary()  # 요약된 대화 내용 가져오기
+
     # ✅ AI 응답 생성
+
     ai_response = generate_response(
         generate_prompt(
             animaltype=character_data["animaltype"],
@@ -45,11 +53,12 @@ def generate_ai_response(user_id: str, charac_id: str, user_input: str):
             emoji_style=personality_data.get("emoji_style", ""),
             prompt_template=personality_data.get("prompt_template", "나는 친절한 말투로 대답할게!"),
             user_nickname=user_nickname,
-            retrieved_context="",  # ✅ FAISS 검색을 Firestore 저장 이후 실행
+            retrieved_context=f"{retrieved_context}\n\n{memory_history[-200:]}\n\n{conversation_summary[-200:]}",  # ✅ LangChain Memory & FAISS 결과 반영
             user_input=user_input
         ),
         chat_id
     )
+
 
     cleaned_response = clean_ai_response(ai_response)
 
