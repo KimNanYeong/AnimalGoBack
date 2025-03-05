@@ -36,11 +36,9 @@ async def websocket_endpoint(websocket: WebSocket):
             # print("클라이언트로부터 받은 메시지:", data)
             # data_dict = json.loads(data)
             # character_list = data_dict['characters']
-            # relationship = await VillageService.get_relationship(character_list)
-            # VillageService.create_message(websocket, character_list, relationship)
-                # await manager.broadcast(f"Message: {chat_message}")
-            # result = await VillageService.create_message(data_dict)
-            
+            # relationship = await service.get_relationship(character_list)
+            # service.create_message(websocket, character_list, relationship)
+               
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("Client left the chat")

@@ -79,6 +79,7 @@ app.include_router(login_router, prefix="/home")
 app.include_router(show_image_router, prefix="/image")
 app.include_router(create_router, prefix="/create")
 
+app.include_router(chat_basic_router, prefix="/home")
 # ✅ WebSocket 라우트 등록
 app.include_router(websocket_router)
 app.include_router(websocket_chat_list_router, prefix="/chat")
