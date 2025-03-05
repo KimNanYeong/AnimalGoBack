@@ -39,8 +39,10 @@ async def websocket_endpoint(websocket: WebSocket,user_id:str):
             # data_dict = json.loads(data)
             # character_list = data_dict['characters']
             # relationship = await VillageService.get_relationship(character_list)
-            # VillageService.create_message(websocket, character_list, relationship)
-
+            # service.create_message(websocket, character_list, relationship)
+                # await manager.broadcast(f"Message: {chat_message}")
+            # result = await VillageService.create_message(data_dict)
+            
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await AgentUtil.destroy_agent(user_id)
