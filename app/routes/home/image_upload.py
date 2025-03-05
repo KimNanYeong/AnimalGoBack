@@ -103,6 +103,16 @@ async def upload_original_image(
             "status": "pending"
         })
 
+        # 🔹 Firestore의 `affinity` 컬렉션에 친밀도 데이터 추가
+        affinity_ref = db.collection("affinity").document(character_id)
+        affinity_ref.set({
+            "character_id": character_id,
+            "user_id": user_id,
+            "points": 50,  # 🔹 초기 친밀도 포인트 설정
+            "level": 1,  # 🔹 기본 레벨 설정
+            "last_interaction": firestore.SERVER_TIMESTAMP  # 🔹 마지막 상호작용 시간 저장
+        })
+
         response = {
             "characterId": character_id,  # 🔹 `{user_id}-{animaltype}{번호}` 반환
             "original_path": original_path,  # 🔹 응답에서도 `original_path` 반환
