@@ -19,12 +19,12 @@ genai.configure(api_key=GEMINI_API_KEY)
 GEMINI_MODEL = "gemini-2.0-flash-thinking-exp-01-21"
 model = genai.GenerativeModel(GEMINI_MODEL)  # default model
 
-def check_character_exists(character_id):
+async def check_character_exists(character_id):
     """Firestore에서 특정 캐릭터가 존재하는지 확인"""
     character_ref = db.collection("characters").document(character_id).get()
     return character_ref.exists
 
-def status_completed(doc_id: str) -> bool:
+async def status_completed(doc_id: str) -> bool:
     # characters 컬렉션의 특정 문서 참조 및 필드 가져오기
     status = db.collection("characters").document(doc_id).get().to_dict().get("status")
     # status가 "completed"인지 확인
@@ -35,13 +35,13 @@ class CustomLLM(LLM):
         self.model = model
         super().__init__(model=model, function=self._generate_response)
 
-    def _generate_response(self, prompt):
+    async def _generate_response(self, prompt):
         """Gemini 2.0 API를 호출하여 AI 응답 생성"""
         model_gen = genai.GenerativeModel(self.model)
         response = model_gen.generate_content(prompt)
         return response.text
 
-    def call(self, prompt: str, callbacks=None) -> str:
+    async def call(self, prompt: str, callbacks=None) -> str:
         """crewai 라이브러리로부터 전달받은 메시지를 Gemini API가 이해할 수 있는 형식으로 변환"""
         return self._generate_response(prompt)
 
@@ -65,7 +65,7 @@ def save_message_and_update_chat(chat_id, sender, message):
         "last_active_at": firestore.SERVER_TIMESTAMP
     })
 
-def get_personality_traits(personality):
+async def get_personality_traits(personality):
     """personality_traits 컬렉션에서 speech_style, species_speech_pattern, emoji_style 가져오기"""
     traits_ref = db.collection("personality_traits").document(personality)
     traits_doc = traits_ref.get()
@@ -92,13 +92,13 @@ master_agent = Agent(
     llm=CustomLLM()
 )
 
-def create_animal_agent(charac_id):
+async def create_animal_agent(charac_id):
     doc_ref = db.collection("characters").document(charac_id)
     data = doc_ref.get().to_dict()
 
     # 🔄 personality에 해당하는 traits 가져오기
     personality = data.get("personality", "기본 성격")
-    traits = get_personality_traits(personality)
+    traits =  await get_personality_traits(personality)
 
     prompt_template = f"""
         **역할**
@@ -121,16 +121,16 @@ def create_animal_agent(charac_id):
         llm=CustomLLM()
     )
 
-async def start_conversation(charac1, charac2):
+async def start_conversation(request, charac1, charac2):
     #  마스터 AI가 주제 발표
-    topic_response = master_agent.llm._generate_response("30글자 이내로 된 공통 대화 주제 형용사와 명사로된 서술체로 2개만 생각하고 랜덤으로 1개 선택")
+    topic_response = await master_agent.llm._generate_response("30글자 이내로 된 공통 대화 주제 형용사와 명사로된 서술체로 2개만 생각하고 랜덤으로 1개 선택")
     match = re.search(r"\*\*(.+?)\*\*", topic_response)
     topic = match.group(1).strip() if match else "일상 대화"
 
     print("topic : ", topic)
 
-    agent_1 = create_animal_agent(charac1)
-    agent_2 = create_animal_agent(charac2)
+    agent_1 = await create_animal_agent(charac1)
+    agent_2 = await create_animal_agent(charac2)
 
     chat_id = f"{charac1}_{charac2}"
     chat_ref = db.collection("chats").document(chat_id)
@@ -146,16 +146,23 @@ async def start_conversation(charac1, charac2):
         })
 
     for i in range(3):
+        if await request.is_disconnected():
+            print("Client disconnected, stopping conversation.")
+            break
         # agent_1의 응답 생성
-        response_1 = agent_1.llm._generate_response(f"주제: {topic}\n[{agent_2.role}]에게 [{agent_1.role}]로서 묻는 대화를 40글자 이내로 시작하라:\n[{agent_1.backstory}]")
+        response_1 = await agent_1.llm._generate_response(f"주제: {topic}\n[{agent_2.role}]에게 [{agent_1.role}]로서 묻는 대화를 40글자 이내로 시작하라:\n[{agent_1.backstory}]")
         print("response_1 :", response_1)
         yield f'{{"speaker": "{charac1}", "message": "{response_1}"}}\n'
  
         save_message_and_update_chat(chat_id, charac1, response_1)
         await asyncio.sleep(0)
 
+        if await request.is_disconnected():
+            print("Client disconnected, stopping conversation.")
+            break
+            
         # agent_2의 응답 생성
-        response_2 = agent_2.llm._generate_response(f"주제: {topic}\n[{agent_2.role}]로서 30 글자 대답하라:\n[{agent_2.backstory}]")
+        response_2 = await agent_2.llm._generate_response(f"주제: {topic}\n[{agent_2.role}]로서 30 글자 대답하라:\n[{agent_2.backstory}]")
 
         print("response_2 :", response_2)
         yield f'{{"speaker": "{charac2}", "message": "{response_2}"}}\n'

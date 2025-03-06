@@ -1,5 +1,5 @@
 from fastapi.responses import StreamingResponse
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Form, HTTPException, Request
 from firebase_admin import firestore
 #from app.services.ai_chats_service import auto_chat, check_character_exists  # 변경된 함수 이름 사용
 from services.ai_chats_service import start_conversation, check_character_exists, status_completed # Ai crew 구조
@@ -23,6 +23,7 @@ db = firestore.client()
     """
 )
 async def start_ai_conversation(
+    request: Request,
     charac_1: str = Form(..., description="첫 번째 캐릭터 ID (Firestore의 document ID)"),
     charac_2: str = Form(..., description="두 번째 캐릭터 ID (Firestore의 document ID)")
 ):
@@ -32,19 +33,19 @@ async def start_ai_conversation(
     chat_id = f"{charac_1}_{charac_2}"  # chat_id 자동 생성
 
     # Firestore에서 캐릭터 존재 여부 확인
-    if not check_character_exists(charac_1) or not check_character_exists(charac_2):
+    if not await check_character_exists(charac_1) or not await check_character_exists(charac_2):
         raise HTTPException(status_code=404, detail="캐릭터 ID - Firestore에 존재하지 않습니다.")
     
     # 이미지 변환 여부 확인
-    if not status_completed(charac_1):
+    if not await status_completed(charac_1):
         raise HTTPException(status_code=404, detail=" 이미지 변환이 되지 않았습니다. charac1 pending")
-    if not status_completed(charac_2):
+    if not await status_completed(charac_2):
         raise HTTPException(status_code=404, detail=" 이미지 변환이 되지 않았습니다. charac2 pending")
 
     # Gemini 2.0 API 기반 자동 대화 실행 (Crew AI 없이 프롬프트를 통한 대화)
     #result = auto_chat(charac_1, charac_2)  --- AI crew 구조로 대체
     #result = start_conversation(charac_1, charac_2)  # streamin 구조로 대체 
-    return StreamingResponse(start_conversation(charac_1, charac_2), media_type="text/event-stream")
+    return StreamingResponse(start_conversation(request, charac_1, charac_2), media_type="text/event-stream")
 
 
 # ==================================================
