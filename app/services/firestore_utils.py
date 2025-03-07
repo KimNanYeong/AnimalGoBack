@@ -6,6 +6,8 @@ db = firestore.client()
 
 def get_character_data(user_id: str, charac_id: str):
     """Firestore에서 캐릭터 데이터 가져오기 (characters 컬렉션 사용)"""
+
+    # character_ref = db.collection("characters").document(f"{charac_id}")
     character_ref = db.collection("characters").document(f"{user_id}-{charac_id}")
     character_doc = character_ref.get()
 

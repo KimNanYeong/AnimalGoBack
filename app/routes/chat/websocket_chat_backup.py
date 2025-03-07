@@ -2,7 +2,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.chat_service import generate_ai_response, get_character_data
 from firebase_admin import firestore
 import json
-import asyncio
 
 router = APIRouter()
 db = firestore.client()
@@ -44,8 +43,10 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: str):
 
             # ✅ Firestore에 사용자 메시지 저장
             try:
-                await asyncio.to_thread(chat_ref.update, {
-                    "messages": firestore.ArrayUnion([{"user_id": user_id, "message": message}]),
+                chat_ref.update({
+                    "messages": firestore.ArrayUnion([
+                        {"user_id": user_id, "message": message}
+                    ]),
                     "last_active_at": firestore.SERVER_TIMESTAMP,
                     "last_message": {"content": message, "sender": user_id}
                 })
@@ -54,7 +55,7 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: str):
 
             # ✅ AI 응답 생성
             user_id_split, charac_id = chat_id.split("-", 1)
-            ai_response, error = await generate_ai_response(user_id_split, charac_id, message)
+            ai_response, error = generate_ai_response(user_id_split, charac_id, message)
 
             if error:
                 ai_response = "AI 응답 생성 중 오류 발생"

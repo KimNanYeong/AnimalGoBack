@@ -63,7 +63,7 @@ app.add_middleware(
 #     raise ValueError("SECRET_KEY environment variable is not set")
 
 # app.add_middleware(SessionMiddleware, secret_key=secret_key)
-app.add_middleware(LoggerMiddleware)
+# app.add_middleware(LoggerMiddleware)
 # app.add_middleware(JWTMiddleware)
 
 # 서버 시작 시 FAISS 저장 디렉토리 자동 생성

@@ -25,9 +25,9 @@ def generate_random_seed():
     """64비트 정수 범위 내 랜덤 seed 생성"""
     return random.randint(0, 2**63 - 1)
 
-async def schedule_village_image_task(village_prompt_id: str, character_info: dict) -> None:
-    """마을 이미지 저장 작업을 비동기로 스케줄링합니다."""
-    await asyncio.create_task(save_village_image(village_prompt_id, character_info))
+# async def schedule_village_image_task(village_prompt_id: str, character_info: dict) -> None:
+#     """마을 이미지 저장 작업을 비동기로 스케줄링합니다."""
+#     await asyncio.create_task(save_village_image(village_prompt_id, character_info))
 
 async def fetch_character_info(charac_id: str) -> dict:
     """
@@ -142,7 +142,7 @@ async def create_profile(character_info:dict):
     #프로필 워크플로우 읽기
     print(f"character_info: {character_info}")
     print(f"COMFYUI_PROFILE_WORKFLOW_PATH: {COMFYUI_PROFILE_WORKFLOW_PATH}")
-    with open (COMFYUI_PROFILE_WORKFLOW_PATH,'r') as file:
+    with open (COMFYUI_PROFILE_WORKFLOW_PATH,'r',encoding="utf-8") as file:
         workflow_data = json.load(file)
 
     prompt = f"""
